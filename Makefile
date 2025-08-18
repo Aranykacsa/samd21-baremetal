@@ -86,7 +86,7 @@ OPENOCD_TARGET=target/at91samdXX.cfg
 
 flash: $(ELF)
 	$(OPENOCD) -f $(OPENOCD_IF) -f $(OPENOCD_TARGET) \
-		-c "program $(ELF) verify reset exit"
+		-c "init; arm semihosting enable; program $(ELF) verify; reset run"
 
 adv:
 	$(MAKE) clean

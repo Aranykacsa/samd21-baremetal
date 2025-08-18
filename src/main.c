@@ -45,6 +45,8 @@ uint8_t aht20_measure(float *temp, float *hum, uint8_t addr7) {
 
 int main(void) {
   SystemInit();               // make sure you’re really at 48 MHz
+  setvbuf(stdout, NULL, _IONBF, 0);   // unbuffered stdout
+  setvbuf(stderr, NULL, _IONBF, 0);
   i2c_begin(100000);          // SERCOM3 on PA22/PA23 (default in i2c_wire.h)
   uart_init_115200_sercom5_pa10_pa11();
 
