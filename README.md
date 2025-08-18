@@ -45,12 +45,16 @@ Packs will be installed under:
 
 ```
 samd21g18-baremetal/
+├─ build/
+├─ out/
+├─env/
+  ├─ syscalls_min.c
+  ├─ startup_samd21_gcc.c
+  ├─ samd21g18a.ld
+  ├─ system_samd21.c
+├─ src/
+  ├─main.c
 ├─ Makefile
-├─ main.c
-├─ syscalls_min.c
-├─ startup_samd21_gcc.c
-├─ samd21g18a.ld
-└─ RTE/Device/ATSAMD21G18A/system_samd21.c
 ```
 
 ---
@@ -99,9 +103,7 @@ openocd -f interface/cmsis-dap.cfg -f target/at91samdXX.cfg \
   -c "program out/samd21g18-blinky.elf verify reset exit"
 ```
 
----
-
-## Easy to use command
+Easy to use command
 ```bash
 make clean && make -j && make flash
 ```
