@@ -14,9 +14,16 @@ DFP_INC ?= $(HOME)/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include
 ENV := env
 SRC := src
 
+# ==== Drivers =====
+
+I2C  ?= $(SRC)/drivers/i2c
+UART ?= $(SRC)/drivers/uart
+
 # ===== Sources =====
 SRCS := \
   $(SRC)/main.c \
+  $(I2C)/i2c.c \
+  $(UART)/uart.c \
   $(ENV)/syscalls_min.c \
   $(ENV)/system_samd21.c \
   $(ENV)/startup_samd21_gcc.c
@@ -35,7 +42,8 @@ CFLAGS  := -mcpu=cortex-m0plus -mthumb -mlittle-endian \
            -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
            -std=c11 -fdata-sections -ffunction-sections -g3 \
            -D_RTE_ -D$(PART) -MMD -MP \
-           -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC)
+           -I$(CMSIS) -I$(DFP_INC) -I$(ENV) \
+           -I$(SRC) -I$(I2C) -I$(UART)
 
 LDFLAGS := -mcpu=cortex-m0plus -mthumb -mlittle-endian \
            -Wl,--gc-sections -Wl,-Map=$(OUTDIR)/$(TARGET).map \
@@ -46,7 +54,7 @@ OBJS := $(SRCS:%=$(BUILDDIR)/%.obj)
 DEPS := $(OBJS:.obj=.d)
 
 # ===== Rules =====
-.PHONY: all clean
+.PHONY: all clean flash adv
 
 all: $(ELF) $(HEX) $(BIN)
 	$(SIZE) $(ELF)
@@ -79,3 +87,8 @@ OPENOCD_TARGET=target/at91samdXX.cfg
 flash: $(ELF)
 	$(OPENOCD) -f $(OPENOCD_IF) -f $(OPENOCD_TARGET) \
 		-c "program $(ELF) verify reset exit"
+
+adv:
+	$(MAKE) clean
+	$(MAKE) all
+	$(MAKE) flash

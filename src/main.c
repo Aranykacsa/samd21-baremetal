@@ -1,7 +1,64 @@
 #include "samd21.h"
 #include "system_samd21.h"
+#include "i2c.h"
+#include "uart.h"
+#include <stdint.h>
+#include <stddef.h>
+#include <sys/unistd.h>
+#include <stdio.h>
 
-static volatile uint16_t g_duty = 0;
+static void delay_ms(uint32_t ms) {
+  // crude busy-wait @48 MHz (≈10 cycles per loop): ~0.21 ms per 1000 iters
+  // tune or replace with SysTick/TC as you like
+  volatile uint32_t n = ms * 230000;
+  while (n--) __asm__ __volatile__("nop");
+}
+
+// Returns 0 on success; nonzero = error
+uint8_t aht20_measure(float *temp, float *hum, uint8_t addr7) {
+  uint8_t cmd[3] = {0xAC, 0x33, 0x00};
+
+  i2c_begin_tx(addr7);
+  if (i2c_write(cmd, 3) != 3 || i2c_end_tx(1) != 0) return 1;
+
+  delay_ms(85); // AHT20 typical conversion time (~80 ms)
+
+  if (i2c_request_from(addr7, 6, 1) != 6) return 2;
+
+  uint8_t d0 = (uint8_t)i2c_read();
+  uint8_t d1 = (uint8_t)i2c_read();
+  uint8_t d2 = (uint8_t)i2c_read();
+  uint8_t d3 = (uint8_t)i2c_read();
+  uint8_t d4 = (uint8_t)i2c_read();
+  uint8_t d5 = (uint8_t)i2c_read(); // CRC (ignored here)
+
+  // Optional: if (d0 & 0x80) return 3; // sensor still busy
+
+  uint32_t humRaw  = ((uint32_t)(d1 & 0x0F) << 16) | ((uint32_t)d2 << 8) | d3;
+  uint32_t tempRaw = ((uint32_t)(d3 & 0xF0) << 12) | ((uint32_t)d4 << 8) | d5;
+
+  *hum  = (humRaw  * 100.0f) / 1048576.0f;        // 20-bit
+  *temp = (tempRaw * 200.0f) / 1048576.0f - 50.0f;
+
+  return 0;
+}
+
+int main(void) {
+  SystemInit();               // make sure you’re really at 48 MHz
+  i2c_begin(100000);          // SERCOM3 on PA22/PA23 (default in i2c_wire.h)
+  uart_init_115200_sercom5_pa10_pa11();
+
+  printf("Hello from Feather M0 @115200 8N1\n");
+
+  float t, h;
+  uint8_t rc = aht20_measure(&t, &h, 0x38);  // AHT20 default addr = 0x38
+  (void)rc;                                  // use rc/t/h as needed
+
+  while (1) { __NOP(); }
+}
+
+
+/*static volatile uint16_t g_duty = 0;
 static volatile int g_dir = 1;          // 1 = up, -1 = down
 static const uint16_t TOP = 2399;       // 48MHz / 1 / (TOP+1) = 20 kHz
 static const uint16_t STEP = 8;         // fade step per period (tweak speed)
@@ -74,4 +131,4 @@ int main(void)
   SystemInit();
   pwm_pa17_init();
   for (;;) __WFI();   // sleep between interrupts
-}
+}*/
