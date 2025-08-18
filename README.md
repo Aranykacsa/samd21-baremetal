@@ -18,6 +18,8 @@ No Arduino, ASF, or HAL — just **CMSIS** and the **SAMD21 device pack**.
 
 ## Dependencies
 
+Original source of information: `https://www.arm.com/technologies/cmsis`
+
 Install toolchain & debugger (Fedora example):
 
 ```bash
@@ -47,13 +49,13 @@ Packs will be installed under:
 samd21g18-baremetal/
 ├─ build/
 ├─ out/
-├─env/
+├─ env/
   ├─ syscalls_min.c
   ├─ startup_samd21_gcc.c
   ├─ samd21g18a.ld
   ├─ system_samd21.c
 ├─ src/
-  ├─main.c
+  ├─ main.c
 ├─ Makefile
 ```
 
