@@ -8,6 +8,7 @@ static inline void _gclk_enable(uint32_t id) {
 }
 
 // src/drivers/uart/uart.c  (replace uart_init_115200_sercom5_pa10_pa11)
+// src/drivers/uart/uart.c  (replace uart_init_115200_sercom5_pa10_pa11)
 void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint8_t rx_pin, uint8_t rxpo, uint8_t pmux) {
   // APBC clock
   uint8_t gclk_id_core, gclk_id_slow;
@@ -87,6 +88,11 @@ void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint
 void uart_putc(char c, Sercom* sercom) {
   while (!sercom->USART.INTFLAG.bit.DRE);
   sercom->USART.DATA.reg = (uint16_t)c;
+}
+
+void uart_putc(char c) {
+  while (!SERCOM5->USART.INTFLAG.bit.DRE);
+  SERCOM5->USART.DATA.reg = (uint16_t)c;
 }
 
 void uart_puts(const char *s, Sercom* sercom) {

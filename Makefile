@@ -38,17 +38,23 @@ BIN := $(OUTDIR)/$(TARGET).bin
 LD  := $(ENV)/samd21g18a.ld
 
 # ===== Flags =====
-CFLAGS  := -mcpu=cortex-m0plus -mthumb -mlittle-endian \
-           -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
-           -std=c11 -fdata-sections -ffunction-sections -g3 \
-           -D_RTE_ -D$(PART) -MMD -MP \
-           -I$(CMSIS) -I$(DFP_INC) -I$(ENV) \
-           -I$(SRC) -I$(I2C) -I$(UART)
+# C compilation flags (no -specs here)
+CFLAGS := -Os -ffunction-sections -fdata-sections \
+  -mcpu=cortex-m0plus -mthumb -mlittle-endian \
+  -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
+  -std=c11 -g3 \
+  -D_RTE_ -D$(PART) -MMD -MP \
+  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART)
 
-LDFLAGS := -mcpu=cortex-m0plus -mthumb -mlittle-endian \
-           -Wl,--gc-sections -Wl,-Map=$(OUTDIR)/$(TARGET).map \
-           -specs=nano.specs -T $(LD)
-LDLIBS  := -lc -lgcc
+# Linker flags — put specs here ONCE
+LDFLAGS := \
+  -specs=nano.specs -u _printf_float -u _scanf_float \
+  -Wl,--gc-sections -Wl,-Map=$(OUTDIR)/$(TARGET).map \
+  -mcpu=cortex-m0plus -mthumb -mfloat-abi=soft \
+  -T env/samd21g18a.ld
+
+# Libraries — group + libm + nosys
+LDLIBS := -Wl,--start-group -lc -lm -lnosys -lgcc -Wl,--end-group
 
 OBJS := $(SRCS:%=$(BUILDDIR)/%.obj)
 DEPS := $(OBJS:.obj=.d)
