@@ -1,84 +1,70 @@
-// ========================= i2c_wire.h =========================
-// Bare‑metal CMSIS I²C master for SAMD21 (SERCOM in I2C master mode)
-// C API (no C++/Arduino). Default mapping: SERCOM3 on PA22(SDA)/PA23(SCL).
-//
-// Usage example:
-//   #include "i2c_wire.h"
-//   int main(void){
-//     i2c_begin(100000);                 // 100 kHz
-//     uint8_t who;
-//     i2c_begin_tx(0x68);                // write register address (repeated START)
-//     uint8_t reg = 0x75;
-//     i2c_write(&reg, 1);
-//     i2c_end_tx(false);                 // no STOP -> repeated START
-//     i2c_request_from(0x68, 1, true);   // read 1 byte, STOP at end
-//     int r = i2c_read();
-//     if (r >= 0) who = (uint8_t)r;
-//     while(1){}
-//   }
-//
-// Configure pins/SERCOM by editing the macros below *before* including this header
-// in one translation unit (or override via -D at compile time).
-
-#ifndef I2C_WIRE_H
-#define I2C_WIRE_H
+#ifndef I2C_H
+#define I2C_H
 
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
 #include "samd21.h"
 
-// ---------- Configuration (override as needed) ----------
-#ifndef I2C_SERCOM
-#  define I2C_SERCOM                SERCOM3
-#  define I2C_GCLK_ID_CORE          SERCOM3_GCLK_ID_CORE
-#  define I2C_PM_APBCMASK_BIT       PM_APBCMASK_SERCOM3
-#  define I2C_SDA_PORT              0u    // 0 = PORTA, 1 = PORTB
-#  define I2C_SDA_PIN               22u   // PA22 (Arduino 20)
-#  define I2C_SCL_PORT              0u
-#  define I2C_SCL_PIN               23u   // PA23 (Arduino 21)
-#  define I2C_PMUX_FUNC             2u    // Function C for SERCOM on D21
-#endif
+// ===== Immutable per-instance config =====
+typedef struct {
+    Sercom*  sercom;             // SERCOMx
+    uint8_t  gclk_id_core;       // SERCOMx_GCLK_ID_CORE
+    uint32_t pm_apbcmask_bit;    // PM_APBCMASK_SERCOMx
 
-#ifndef I2C_FREF_HZ
-#  define I2C_FREF_HZ               (48000000u) // SERCOM core clock
-#endif
+    // Pinmux: SDA must be on PAD[0], SCL on PAD[1]
+    uint8_t  sda_port;           // 0=PORTA, 1=PORTB
+    uint8_t  sda_pin;            // e.g., PA22 -> port=0, pin=22
+    uint8_t  scl_port;           // 0=PORTA, 1=PORTB
+    uint8_t  scl_pin;
+    uint8_t  pmux_func;          // Usually 2 (Function C) on D21
+} i2c_cfg_t;
 
-#ifndef I2C_DEFAULT_HZ
-#  define I2C_DEFAULT_HZ            (100000u)
-#endif
-
+// ===== Mutable per-instance state =====
 #ifndef I2C_TX_BUF_SZ
-#  define I2C_TX_BUF_SZ             64u
+#  define I2C_TX_BUF_SZ 64u
 #endif
 #ifndef I2C_RX_BUF_SZ
-#  define I2C_RX_BUF_SZ             64u
+#  define I2C_RX_BUF_SZ 64u
+#endif
+#ifndef I2C_FREF_HZ
+#  define I2C_FREF_HZ   48000000u   // SERCOM core clock (after GCLK)
 #endif
 
+typedef struct {
+    i2c_cfg_t cfg;               // copy of config (or store pointer if you prefer)
+    uint32_t  hz;                // current bus speed (100k/400k)
+    bool      initialized;
+    bool      busy;
+    uint8_t   last_error;
+
+    // simple internal FIFOs
+    uint8_t   tx[I2C_TX_BUF_SZ];
+    size_t    tx_len;
+    uint8_t   rx[I2C_RX_BUF_SZ];
+    size_t    rx_len;
+    size_t    rx_pos;
+} i2c_t;
+
+// ====== API (all instance-based) ======
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-// Initialize I2C master with target frequency (e.g., 100000 or 400000)
-void     i2c_begin(uint32_t hz);
-// Change I2C clock on the fly
-void     i2c_set_clock(uint32_t hz);
+void   i2c_init(i2c_t* b, const i2c_cfg_t* cfg, uint32_t hz); // enable clocks, pinmux, master mode
+void   i2c_set_clock(i2c_t* b, uint32_t hz);
 
-// Transaction API (Arduino-like)
-void     i2c_begin_tx(uint8_t addr7);
-size_t   i2c_write(const uint8_t *data, size_t len);
-size_t   i2c_write_byte(uint8_t b);
-// end transmission; sendStop=true sends STOP, false keeps bus for repeated START
-uint8_t  i2c_end_tx(int sendStop);
+// Transactions
+void   i2c_begin_tx(i2c_t* b, uint8_t addr7);
+size_t i2c_write(i2c_t* b, const uint8_t* data, size_t len);
+size_t i2c_write_byte(i2c_t* b, uint8_t byte);
+uint8_t i2c_end_tx(i2c_t* b, int sendStop); // 0=OK, nonzero=error
 
-// Request to read len bytes; returns number actually available to read
-size_t   i2c_request_from(uint8_t addr7, size_t len, int sendStop);
-// Read one byte from the internal receive buffer; returns -1 if none
-int      i2c_read(void);
-// Bytes remaining in the read buffer
-size_t   i2c_available(void);
+size_t i2c_request_from(i2c_t* b, uint8_t addr7, size_t len, int sendStop);
+int    i2c_read(i2c_t* b);                  // -1 if none
+size_t i2c_available(const i2c_t* b);
 
 #ifdef __cplusplus
 }
 #endif
-
-#endif // I2C_WIRE_H
+#endif // I2C_H

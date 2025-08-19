@@ -2,6 +2,7 @@
 #ifndef UART_H
 #define UART_H
 
+#include "samd21.h"
 #include <stdint.h>
 #include <stddef.h>
 
