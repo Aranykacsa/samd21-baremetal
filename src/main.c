@@ -2,71 +2,72 @@
 #include "samd21.h"
 #include "system_samd21.h"
 #include <stdint.h>
-#include <stdio.h>
 
-#include "i2c.h"
+#define PIN_SERIAL1_RX       (0ul)
+#define PIN_SERIAL1_TX       (1ul)
+#define PAD_SERIAL1_TX       (UART_TX_PAD_2)
+#define PAD_SERIAL1_RX       (SERCOM_RX_PAD_3)
 
-/* ==================== SysTick + delays ==================== */
-static volatile uint32_t g_ms_ticks = 0;
-
-void SysTick_Handler(void) { g_ms_ticks++; }
-
-/* 1 kHz SysTick */
-static inline void systick_init(void) {
-  SysTick_Config(SystemCoreClock / 1000u);
-}
-
-/* Millisecond delay (rollover-safe) */
+/* ---------- accurate 1 ms tick ---------- */
+static volatile uint32_t g_ms = 0;
+void SysTick_Handler(void) { g_ms++; }
 static inline void delay_ms(uint32_t ms) {
-  uint32_t start = g_ms_ticks;
-  while ((uint32_t)(g_ms_ticks - start) < ms) { /* busy wait */ }
+  uint32_t start = g_ms;
+  while ((g_ms - start) < ms) { __NOP(); }
 }
 
-/* Microsecond delay (coarse, cycles) */
-static inline void delay_us(uint32_t us) {
-  uint32_t cycles = (SystemCoreClock / 1000000u) * us / 5u; // rough tuning
-  while (cycles--) { __asm__ volatile ("nop"); }
-}
-
-
-/* ==================== AHT20 (blocking, linear) ==================== */
+/* ---------- AHT20 helpers ---------- */
 static uint8_t aht20_init(uint8_t addr7) {
-  const uint8_t seq[3] = {0xBE,0x08,0x00};
-  int rc = i2c_write(addr7, seq, 3);
-  delay_ms(100);                                // one-time calibration
-  return (rc == 0) ? 0 : 1;
+  // 0xBE 0x08 0x00 — calibration/initialization
+  i2c_begin_tx(addr7);
+  uint8_t seq[3] = {0xBE, 0x08, 0x00};
+  if (i2c_write(seq, 3) != 3 || i2c_end_tx(1) != 0) return 1;
+  delay_ms(100);
+  return 0;
 }
 
-static uint8_t aht20_read(uint8_t addr7, float *temp_c, float *hum_pct) {
-  const uint8_t trig[3] = {0xAC,0x33,0x00};
-  if (i2c_write(addr7, trig, 3) != 0) {
-    // recover once
-    i2c_swrst_reinit();
-    delay_ms(2);
-    if (i2c_write(addr7, trig, 3) != 0) return 1;
-  }
+// Return 0 on success; nonzero on error
+static uint8_t aht20_measure(float *temp_c, float *hum_pct, uint8_t addr7) {
+  // trigger: 0xAC 0x33 0x00
+  uint8_t trig[3] = {0xAC, 0x33, 0x00};
+  i2c_begin_tx(addr7);
+  if (i2c_write(trig, 3) != 3 || i2c_end_tx(1) != 0) return 1;
 
-  delay_ms(90);                                 // conservative conversion wait
+  delay_ms(85); // typical conversion time
 
-  uint8_t d[6];
-  if (i2c_read(addr7, d, 6) != 0) {
-    i2c_swrst_reinit();
-    delay_ms(2);
-    if (i2c_read(addr7, d, 6) != 0) return 2;
-  }
+  if (i2c_request_from(addr7, 6, 1) != 6) return 2;
 
-  if (d[0] & 0x80) {                            // still busy
+  uint8_t d0 = (uint8_t)i2c_read();
+  uint8_t d1 = (uint8_t)i2c_read();
+  uint8_t d2 = (uint8_t)i2c_read();
+  uint8_t d3 = (uint8_t)i2c_read();
+  uint8_t d4 = (uint8_t)i2c_read();
+  uint8_t d5 = (uint8_t)i2c_read(); // CRC (unused here)
+
+  // Optional: if busy bit still set, small wait+retry
+  if (d0 & 0x80) {
     delay_ms(10);
-    if (i2c_read(addr7, d, 6) != 0) return 3;
-    if (d[0] & 0x80) return 4;
+    if (i2c_request_from(addr7, 6, 1) != 6) return 3;
+    d0 = (uint8_t)i2c_read();
+    d1 = (uint8_t)i2c_read();
+    d2 = (uint8_t)i2c_read();
+    d3 = (uint8_t)i2c_read();
+    d4 = (uint8_t)i2c_read();
+    d5 = (uint8_t)i2c_read();
   }
 
-  /* Correct 20-bit extraction */
-  uint32_t humRaw  = ((uint32_t)d[1] << 12) | ((uint32_t)d[2] << 4) | (d[3] >> 4);
-  uint32_t tempRaw = ((uint32_t)(d[3] & 0x0F) << 16) | ((uint32_t)d[4] << 8) | d[5];
+  // Debug dump (like your Serial version)
+  printf("AHT20 raw: %02X %02X %02X %02X %02X %02X\n", d0, d1, d2, d3, d4, d5);
+
+  // 20-bit fields per datasheet:
+  // Humidity  = [d1(3:0), d2, d3]  -> ((d1 & 0x0F)<<16) | (d2<<8) | d3
+  // Temperature = [d3(7:4), d4, d5] -> ((d3 & 0xF0)<<12) | (d4<<8) | d5
+  uint32_t humRaw  = ((uint32_t)(d1 & 0x0F) << 16) | ((uint32_t)d2 << 8) | d3;
+  uint32_t tempRaw = ((uint32_t)(d3 & 0xF0) << 12) | ((uint32_t)d4 << 8) | d5;
 
   *hum_pct = (humRaw  * 100.0f) / 1048576.0f;
   *temp_c  = (tempRaw * 200.0f) / 1048576.0f - 50.0f;
+
   return 0;
 }
 
