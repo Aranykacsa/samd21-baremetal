@@ -20,51 +20,26 @@ typedef struct {
     uint8_t  pmux_func;          // Usually 2 (Function C) on D21
 } i2c_cfg_t;
 
-// ===== Mutable per-instance state =====
-#ifndef I2C_TX_BUF_SZ
-#  define I2C_TX_BUF_SZ 64u
-#endif
-#ifndef I2C_RX_BUF_SZ
-#  define I2C_RX_BUF_SZ 64u
-#endif
-#ifndef I2C_FREF_HZ
-#  define I2C_FREF_HZ   48000000u   // SERCOM core clock (after GCLK)
-#endif
+// Initialize SERCOM3 I2C master on PA22(SDA)/PA23(SCL).
+// Pass 100000 for 100 kHz (default if 0) or 400000 for 400 kHz.
+// Returns 0 on success.
+int i2c_init(uint32_t hz);
 
-typedef struct {
-    i2c_cfg_t cfg;               // copy of config (or store pointer if you prefer)
-    uint32_t  hz;                // current bus speed (100k/400k)
-    bool      initialized;
-    bool      busy;
-    uint8_t   last_error;
+// Software reset + reinit with previous speed. Use for recovery.
+void i2c_swrst_reinit(void);
 
-    // simple internal FIFOs
-    uint8_t   tx[I2C_TX_BUF_SZ];
-    size_t    tx_len;
-    uint8_t   rx[I2C_RX_BUF_SZ];
-    size_t    rx_len;
-    size_t    rx_pos;
-} i2c_t;
+// Change I2C speed on the fly (recomputes BAUD). Returns 0 on success.
+int i2c_set_speed(uint32_t hz);
 
-// ====== API (all instance-based) ======
-#ifdef __cplusplus
-extern "C" {
-#endif
+// Write 'len' bytes to 7-bit address. Sends STOP. Returns 0 on success.
+// Error codes: 1 addr timeout, 2 addr NACK, 3 data timeout, 4 data NACK.
+int i2c_write(uint8_t addr7, const uint8_t *buf, uint32_t len);
 
-void   i2c_init(i2c_t* b, const i2c_cfg_t* cfg, uint32_t hz); // enable clocks, pinmux, master mode
-void   i2c_set_clock(i2c_t* b, uint32_t hz);
+// Read 'len' bytes from 7-bit address. Sends STOP. Returns 0 on success.
+// Error codes: 1 addr timeout, 2 data timeout.
+int i2c_read(uint8_t addr7, uint8_t *buf, uint32_t len);
 
-// Transactions
-void   i2c_begin_tx(i2c_t* b, uint8_t addr7);
-size_t i2c_write(i2c_t* b, const uint8_t* data, size_t len);
-size_t i2c_write_byte(i2c_t* b, uint8_t byte);
-uint8_t i2c_end_tx(i2c_t* b, int sendStop); // 0=OK, nonzero=error
+// Force bus IDLE and clear sticky errors (BUSERR/ARBLOST).
+void i2c_force_idle(void);
 
-size_t i2c_request_from(i2c_t* b, uint8_t addr7, size_t len, int sendStop);
-int    i2c_read(i2c_t* b);                  // -1 if none
-size_t i2c_available(const i2c_t* b);
-
-#ifdef __cplusplus
-}
-#endif
 #endif // I2C_H

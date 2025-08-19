@@ -62,7 +62,8 @@ build/src/drivers/i2c/i2c.c.obj: src/drivers/i2c/i2c.c \
  /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/instance/tcc2.h \
  /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/instance/usb.h \
  /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/instance/wdt.h \
- /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/pio/samd21g18a.h
+ /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/pio/samd21g18a.h \
+ /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/system_samd21.h
 src/drivers/i2c/i2c.h:
 /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/samd21.h:
 /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/samd21g18a.h:
@@ -127,3 +128,4 @@ src/drivers/i2c/i2c.h:
 /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/instance/usb.h:
 /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/instance/wdt.h:
 /home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/pio/samd21g18a.h:
+/home/vdsz_zalan/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include/system_samd21.h:
