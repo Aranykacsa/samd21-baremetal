@@ -1,48 +1,58 @@
-/* ATSAMD21G18A memory map */
+/* ATSAMD21G18A — NO BOOTLOADER OFFSET */
 ENTRY(Reset_Handler)
 
 _estack = ORIGIN(RAM) + LENGTH(RAM);
 
 MEMORY {
-  FLASH (rx) : ORIGIN = 0x00002000, LENGTH = 0x00040000 - 0x2000   /* 256KB minus 8KB */
-  RAM   (rwx): ORIGIN = 0x20000000, LENGTH = 0x00008000            /* 32KB */
+  FLASH (rx)  : ORIGIN = 0x00000000, LENGTH = 0x00040000  /* 256 KB */
+  RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 0x00008000  /* 32 KB  */
 }
 
 SECTIONS
 {
-  .isr_vector :
-  {
-    KEEP(*(.isr_vector))
-  } > FLASH
-
+  /* --- code + const in FLASH (vectors at 0x00000000) --- */
   .text :
   {
-    *(.text*) *(.rodata*) *(.glue_7) *(.glue_7t) *(.eh_frame*)
+    _stext = .;
+    KEEP(*(.isr_vector))               /* vector table */
+    *(.text .text.* .gnu.linkonce.t.*)
+    *(.glue_7t) *(.glue_7)
     KEEP(*(.init)) KEEP(*(.fini))
+    *(.rodata .rodata.* .gnu.linkonce.r.*)
+    . = ALIGN(4);
+    _etext = .;
   } > FLASH
 
+  /* unwind tables in FLASH BEFORE .data’s LMA */
   .ARM.exidx :
   {
     __exidx_start = .;
-    *(.ARM.exidx*)
+    *(.ARM.exidx* .gnu.linkonce.armexidx.*)
     __exidx_end = .;
+    . = ALIGN(4);
   } > FLASH
 
-  .data : AT (ADDR(.text) + SIZEOF(.text))
+  /* .data runs in RAM, loads from FLASH right after exidx */
+  .data : AT (ADDR(.ARM.exidx) + SIZEOF(.ARM.exidx))
   {
-    _sidata = LOADADDR(.data);
-    _sdata  = .;
-    *(.data*)
-    _edata  = .;
+    . = ALIGN(4);
+    _sdata = .;
+    *(.data .data.*)
+    . = ALIGN(4);
+    _edata = .;
   } > RAM
+  _sidata = LOADADDR(.data);
 
+  /* zero-initialized */
   .bss (NOLOAD) :
   {
+    . = ALIGN(4);
     _sbss = .;
-    *(.bss*) *(COMMON)
+    *(.bss .bss.*)
+    *(COMMON)
+    . = ALIGN(4);
     _ebss = .;
   } > RAM
 
-  . = ALIGN(4);
   _end = .;
 }

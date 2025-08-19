@@ -2,12 +2,6 @@
 #include "samd21.h"
 #include "uart.h"
 
-static inline void _gclk_enable(uint32_t id) {
-  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(id) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
-  while (GCLK->STATUS.bit.SYNCBUSY);
-}
-
-// src/drivers/uart/uart.c  (replace uart_init_115200_sercom5_pa10_pa11)
 // src/drivers/uart/uart.c  (replace uart_init_115200_sercom5_pa10_pa11)
 void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint8_t rx_pin, uint8_t rxpo, uint8_t pmux) {
   // APBC clock
@@ -90,14 +84,9 @@ void uart_putc(char c, Sercom* sercom) {
   sercom->USART.DATA.reg = (uint16_t)c;
 }
 
-void uart_putc(char c) {
-  while (!SERCOM5->USART.INTFLAG.bit.DRE);
-  SERCOM5->USART.DATA.reg = (uint16_t)c;
-}
-
 void uart_puts(const char *s, Sercom* sercom) {
   while (*s) {
-    if (*s == '\n') uart_putc('\r');
+    if (*s == '\n') uart_putc('\r', sercom);
     uart_putc(*s++, sercom);
   }
 }
