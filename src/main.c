@@ -5,6 +5,11 @@
 #include <stdio.h>
 #include <stdint.h>
 
+#define PIN_SERIAL1_RX       (0ul)
+#define PIN_SERIAL1_TX       (1ul)
+#define PAD_SERIAL1_TX       (UART_TX_PAD_2)
+#define PAD_SERIAL1_RX       (SERCOM_RX_PAD_3)
+
 /* ---------- accurate 1 ms tick ---------- */
 static volatile uint32_t g_ms = 0;
 void SysTick_Handler(void) { g_ms++; }
@@ -69,23 +74,19 @@ static uint8_t aht20_measure(float *temp_c, float *hum_pct, uint8_t addr7) {
 }
 
 int main(void) {
-<<<<<<< HEAD
   SystemInit();               // make sure you’re really at 48 MHz
   setvbuf(stdout, NULL, _IONBF, 0);   // unbuffered stdout
   setvbuf(stderr, NULL, _IONBF, 0);
   i2c_begin(100000);          // SERCOM3 on PA22/PA23 (default in i2c_wire.h)
-  uart_init(SERCOM5, 115200, 10, 1, 11, 3, PORT_PMUX_PMUXE_D_Val);
-=======
-  SystemInit();                               // 48 MHz clocks
-  SysTick_Config(SystemCoreClock / 1000);     // 1 ms tick
+  
+  uart_init(SERCOM5, 115200, PIN_SERIAL1_TX, PAD_SERIAL1_TX, PIN_SERIAL1_RX, PAD_SERIAL1_RX, 0);
 
-  uart_init_115200_sercom5_pa10_pa11();  // first
+  uart_puts("radio set mod lora\r\n", SERCOM5);
 
-  // printf unbuffered
-  setvbuf(stdout, NULL, _IONBF, 0);
+  uint8_t buffer[10];
+  size_t n = uart_read(buffer, 10, SERCOM5);
 
-  i2c_begin(100000);                          // your SERCOM/pins for I2C
->>>>>>> b1a797da161d67d361500eb9fa39ba28b01a54bb
+  printf("Rádióból kapott válasz: %d", n);
 
   printf("Hello from Feather M0 @115200 8N1\n");
 

@@ -90,11 +90,6 @@ void uart_putc(char c, Sercom* sercom) {
   sercom->USART.DATA.reg = (uint16_t)c;
 }
 
-void uart_putc(char c) {
-  while (!SERCOM5->USART.INTFLAG.bit.DRE);
-  SERCOM5->USART.DATA.reg = (uint16_t)c;
-}
-
 void uart_puts(const char *s, Sercom* sercom) {
   while (*s) {
     if (*s == '\n') uart_putc('\r');

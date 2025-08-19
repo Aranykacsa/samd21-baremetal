@@ -5,20 +5,11 @@
 #include <stdint.h>
 #include <stddef.h>
 
-<<<<<<< HEAD
 void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint8_t rx_pin, uint8_t rxpo, uint8_t pmux);
 void uart_putc(char c, Sercom* sercom);
 void uart_puts(const char *s, Sercom* sercom);
 int  uart_getc_blocking(Sercom* sercom);     // blocks until a char arrives
 int  uart_try_read(Sercom* sercom);          // returns -1 if no char
 size_t uart_read(uint8_t *buf, size_t maxlen, Sercom* sercom); // non-blocking bulk read
-=======
-void uart_init_115200_sercom5_pa10_pa11(void);
-void uart_putc(uint8_t c);;
-void uart_puts(const char *s);
-int  uart_getc_blocking(void);     // blocks until a char arrives
-int  uart_try_read(void);          // returns -1 if no char
-size_t uart_read(uint8_t *buf, size_t maxlen); // non-blocking bulk read
 
 #endif
->>>>>>> b1a797da161d67d361500eb9fa39ba28b01a54bb
