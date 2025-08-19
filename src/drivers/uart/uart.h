@@ -11,6 +11,7 @@ void uart_putc(char c, Sercom* sercom);
 void uart_puts(const char *s, Sercom* sercom);
 int  uart_getc_blocking(Sercom* sercom);     // blocks until a char arrives
 int  uart_try_read(Sercom* sercom);          // returns -1 if no char
-size_t uart_read(uint8_t *buf, size_t maxlen, Sercom* sercom); // non-blocking bulk read
+size_t uart_read(char *buf, size_t maxlen, Sercom* sercom); // non-blocking bulk read
+size_t uart_read_blocking(char *buf, size_t maxlen, Sercom* sercom, uint32_t timeout_ms);
 
 #endif

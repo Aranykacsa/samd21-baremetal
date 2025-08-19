@@ -1,6 +1,22 @@
 // src/drivers/uart/uart.c
 #include "samd21.h"
 #include "uart.h"
+#include "clock.h"
+
+static void port_pinmux(uint8_t port, uint8_t pin, uint8_t function, int input_en)
+{
+    // PA10 = TX
+PORT->Group[0].PINCFG[10].bit.PMUXEN = 1;
+PORT->Group[0].PINCFG[10].bit.INEN   = 0;
+PORT->Group[0].PMUX[10 >> 1].bit.PMUXE = PORT_PMUX_PMUXE_D_Val;
+
+// PA11 = RX
+PORT->Group[0].PINCFG[11].bit.PMUXEN = 1;
+PORT->Group[0].PINCFG[11].bit.INEN   = 1;
+PORT->Group[0].PMUX[11 >> 1].bit.PMUXO = PORT_PMUX_PMUXO_D_Val;
+
+}
+
 
 // src/drivers/uart/uart.c  (replace uart_init_115200_sercom5_pa10_pa11)
 void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint8_t rx_pin, uint8_t rxpo, uint8_t pmux) {
@@ -44,12 +60,8 @@ void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint
                       GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
   while (GCLK->STATUS.bit.SYNCBUSY);
 
-  // Pinmux: PA10 (TX, PAD2), PA11 (RX, PAD3) -> function D
-  PORT->Group[0].PINCFG[tx_pin].bit.PMUXEN = 1;
-  PORT->Group[0].PMUX[tx_pin/2].bit.PMUXE  = pmux;
-  PORT->Group[0].PINCFG[rx_pin].bit.PMUXEN = 1;
-  PORT->Group[0].PINCFG[rx_pin].bit.INEN   = 1;
-  PORT->Group[0].PMUX[rx_pin/2].bit.PMUXO  = pmux;
+  port_pinmux(0, tx_pin, pmux, 0);  // TX (output, no input buffer)
+  port_pinmux(0, rx_pin, pmux, 1);  // RX (needs input buffer)
 
   // Reset
   sercom->USART.CTRLA.bit.SWRST = 1;
@@ -72,8 +84,11 @@ void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint
   while (sercom->USART.SYNCBUSY.bit.CTRLB);
 
   // Baud = 65536 * (1 - 16*baud/Fref), Fref=48 MHz
-  const uint64_t br = (uint64_t)65536 * (48000000 - 16*baud) / 48000000;
+  uint32_t ref = SystemCoreClock; // 1 MHz
+  uint64_t br = (uint64_t)65536 * (ref - 16*baud) / ref;
   sercom->USART.BAUD.reg = (uint16_t)br;
+
+  //sercom->USART.BAUD.reg = baud;
 
   sercom->USART.CTRLA.bit.ENABLE = 1;
   while (sercom->USART.SYNCBUSY.bit.ENABLE);
@@ -101,10 +116,27 @@ int uart_try_read(Sercom* sercom) {
   return (int)(sercom->USART.DATA.reg & 0xFF);
 }
 
-size_t uart_read(uint8_t *buf, size_t maxlen, Sercom* sercom) {
+size_t uart_read(char *buf, size_t maxlen, Sercom* sercom) {
   size_t n = 0;
   while (n < maxlen && sercom->USART.INTFLAG.bit.RXC) {
-    buf[n++] = (uint8_t)(sercom->USART.DATA.reg & 0xFF);
+    buf[n++] = (sercom->USART.DATA.reg & 0xFF);
   }
   return n;
+}
+
+
+size_t uart_read_blocking(char *buf, size_t maxlen, Sercom* sercom, uint32_t timeout_ms) {
+    size_t n = 0;
+    uint32_t start = g_ms;
+    while (n < maxlen - 1) {            // leave room for '\0'
+        while (!sercom->USART.INTFLAG.bit.RXC) {
+            if ((g_ms - start) >= timeout_ms) {
+                buf[n] = '\0';          // terminate string
+                return n;               // timeout reached
+            }
+        }
+        buf[n++] = (sercom->USART.DATA.reg & 0xFF);
+    }
+    buf[n] = '\0';
+    return n;
 }
