@@ -48,7 +48,7 @@ int main(void) {
   setvbuf(stdout, NULL, _IONBF, 0);   // unbuffered stdout
   setvbuf(stderr, NULL, _IONBF, 0);
   i2c_begin(100000);          // SERCOM3 on PA22/PA23 (default in i2c_wire.h)
-  uart_init_115200_sercom5_pa10_pa11();
+  uart_init(SERCOM5, 115200, 10, 1, 11, 3, PORT_PMUX_PMUXE_D_Val);
 
   printf("Hello from Feather M0 @115200 8N1\n");
 
