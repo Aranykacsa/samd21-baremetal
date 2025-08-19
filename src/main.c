@@ -165,8 +165,15 @@ static uint8_t aht20_read(uint8_t addr7, float *temp_c, float *hum_pct) {
 extern void uart_init_115200_sercom5_pa10_pa11(void); // remove if not used
 
 int main(void) {
-  SystemInit();                      // 48 MHz DFLL
-  systick_init();                    // your SysTick
+<<<<<<< HEAD
+  SystemInit();               // make sure you’re really at 48 MHz
+  setvbuf(stdout, NULL, _IONBF, 0);   // unbuffered stdout
+  setvbuf(stderr, NULL, _IONBF, 0);
+  i2c_begin(100000);          // SERCOM3 on PA22/PA23 (default in i2c_wire.h)
+  uart_init(SERCOM5, 115200, 10, 1, 11, 3, PORT_PMUX_PMUXE_D_Val);
+=======
+  SystemInit();                               // 48 MHz clocks
+  SysTick_Config(SystemCoreClock / 1000);     // 1 ms tick
 
   /* LED PA17 for heartbeat (Feather M0 D13) */
   PM->APBBMASK.reg |= PM_APBBMASK_PORT;
@@ -176,11 +183,14 @@ int main(void) {
   uart_init_115200_sercom5_pa10_pa11();
   setvbuf(stdout, NULL, _IONBF, 0);
 
-  i2c3_init_100k();
+  i2c_begin(100000);                          // your SERCOM/pins for I2C
+>>>>>>> b1a797da161d67d361500eb9fa39ba28b01a54bb
 
-  const uint8_t AHT_ADDR = 0x38;
-  if (aht20_init(AHT_ADDR) != 0) {
-    printf("AHT20 init FAILED\r\n");
+  printf("Hello from Feather M0 @115200 8N1\n");
+
+  // one-time init sequence (matches your working Wire code)
+  if (aht20_init(0x38) != 0) {
+    printf("AHT20 not responding during init.\n");
   } else {
     printf("AHT20 init OK\r\n");
   }
