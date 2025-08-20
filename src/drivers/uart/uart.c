@@ -101,7 +101,8 @@ void uart_putc(char c, Sercom* sercom) {
 
 void uart_puts(const char *s, Sercom* sercom) {
   while (*s) {
-    if (*s == '\n') uart_putc('\r', sercom);
+    //if (*s == '\n') uart_putc('\r', sercom);
+    printf("%c",*s);
     uart_putc(*s++, sercom);
   }
 }

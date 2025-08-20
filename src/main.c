@@ -17,15 +17,14 @@ int main(void) {
   SystemInit();                               // 48 MHz clocks
   SysTick_Config(SystemCoreClock / 1000);     // 1 ms tick
 
-  printf("INIT");
+  printf("INIT\r\n");
 
   /* (Optional) UART for printf */
   uart_init(SERCOM2, 115200, PIN_SERIAL1_TX, PAD_SERIAL1_TX, PIN_SERIAL1_RX, PAD_SERIAL1_RX, 0);
 
   delay_ms(3000);
-
-  uart_puts("radio get mod\r\n", SERCOM2);
-
+ 
+  uart_puts("\r\n", SERCOM2);
   char buf[64];
   size_t n = uart_read_blocking(buf, sizeof(buf), SERCOM2, 1000);
   if (n > 0) {
@@ -33,14 +32,21 @@ int main(void) {
   } else {
       printf("No loopback!\n");
   }
+  uart_puts("radio get freq\r\n", SERCOM2);
 
+  n = uart_read_blocking(buf, sizeof(buf), SERCOM2, 1000);
+  if (n > 0) {
+      printf("Loopback: %s\n", buf);   // semihosting console
+  } else {
+      printf("No loopback!\n");
+  }
 
-  /*uart_puts("radio set mod lora\r\n", SERCOM5);
+  uart_puts("radio set freq 868100000\r\n", SERCOM2);
 
-  char buffer[64];
-  size_t n = uart_read_blocking(buffer, sizeof(buffer), SERCOM5, 1000); // wait up to 1s
-
-  printf("Rádióból kapott válasz: %s", buffer);
-
-  setvbuf(stdout, NULL, _IONBF, 0);*/
+  n = uart_read_blocking(buf, sizeof(buf), SERCOM2, 1000);
+  if (n > 0) {
+      printf("Loopback: %s\n", buf);   // semihosting console
+  } else {
+      printf("No loopback!\n");
+  }
 }
