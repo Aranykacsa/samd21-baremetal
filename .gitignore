@@ -1,0 +1,12 @@
+# Build output
+.build/
+.out/
+.vscode/
+
+# Optional: object files, dependency files, and binaries
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+settings.json

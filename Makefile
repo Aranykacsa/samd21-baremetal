@@ -15,13 +15,14 @@ ENV := env
 SRC := src
 
 # ==== Drivers =====
-
-I2C  ?= $(SRC)/drivers/i2c
-UART ?= $(SRC)/drivers/uart
+CLOCK ?= $(SRC)/drivers/clock
+I2C   ?= $(SRC)/drivers/i2c
+UART  ?= $(SRC)/drivers/uart
 
 # ===== Sources =====
 SRCS := \
   $(SRC)/main.c \
+  $(CLOCK)/clock.c \
   $(I2C)/i2c.c \
   $(UART)/uart.c \
   $(ENV)/syscalls_min.c \
@@ -29,8 +30,8 @@ SRCS := \
   $(ENV)/startup_samd21_gcc.c
 
 # ===== Outputs =====
-BUILDDIR := build
-OUTDIR   := out
+BUILDDIR := .build
+OUTDIR   := .out
 TARGET   := samd21g18-blinky
 ELF := $(OUTDIR)/$(TARGET).elf
 HEX := $(OUTDIR)/$(TARGET).hex
@@ -44,7 +45,7 @@ CFLAGS := -Os -ffunction-sections -fdata-sections \
   -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
   -std=c11 -g3 \
   -D_RTE_ -D$(PART) -MMD -MP \
-  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART)
+  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART) -I$(CLOCK)
 
 # Linker flags — put specs here ONCE
 LDFLAGS := \

@@ -1,144 +1,155 @@
-// ========================= i2c_wire.c =========================
+// src/drivers/i2c/i2c.c
 #include "i2c.h"
+#include "samd21.h"
+#include "system_samd21.h"
 
-// ---- static state ----
-static uint8_t  s_tx[I2C_TX_BUF_SZ];
-static size_t   s_tx_len;
-static uint8_t  s_rx[I2C_RX_BUF_SZ];
-static size_t   s_rx_len;
-static size_t   s_rx_idx;
-static uint8_t  s_addr7;
+volatile uint32_t g_ms_ticks; // declared extern in header; defined in your app
+#ifndef I2C_DEFAULT_HZ
+#define I2C_DEFAULT_HZ 100000u
+#endif
 
-// ---- helpers ----
-static inline PortGroup* _pg(uint8_t port){ return &PORT->Group[port]; }
+static uint32_t g_i2c_hz = I2C_DEFAULT_HZ;
 
-static void _i2c_port_init(void){
-  PortGroup *pg = _pg(I2C_SDA_PORT);
-  // enable input + weak pull-ups (still use external 2.2k–4.7k in real HW)
-  pg->PINCFG[I2C_SDA_PIN].bit.INEN = 1;
-  pg->PINCFG[I2C_SDA_PIN].bit.PULLEN = 1;
-  pg->OUTSET.reg = (1u << I2C_SDA_PIN);
-  pg->PINCFG[I2C_SCL_PIN].bit.INEN = 1;
-  pg->PINCFG[I2C_SCL_PIN].bit.PULLEN = 1;
-  pg->OUTSET.reg = (1u << I2C_SCL_PIN);
-  // PMUX function
-  uint8_t idx;
-  idx = I2C_SDA_PIN/2u;
-  if ((I2C_SDA_PIN & 1u)==0u) pg->PMUX[idx].bit.PMUXE = I2C_PMUX_FUNC; else pg->PMUX[idx].bit.PMUXO = I2C_PMUX_FUNC;
-  idx = I2C_SCL_PIN/2u;
-  if ((I2C_SCL_PIN & 1u)==0u) pg->PMUX[idx].bit.PMUXE = I2C_PMUX_FUNC; else pg->PMUX[idx].bit.PMUXO = I2C_PMUX_FUNC;
-  pg->PINCFG[I2C_SDA_PIN].bit.PMUXEN = 1;
-  pg->PINCFG[I2C_SCL_PIN].bit.PMUXEN = 1;
+/* -------- internal helpers -------- */
+static inline void i2c_issue_stop(void) {
+  SERCOM3->I2CM.CTRLB.bit.CMD = 3;                 // STOP
+  while (SERCOM3->I2CM.SYNCBUSY.bit.SYSOP);        // wait bus op done
+  if (SERCOM3->I2CM.STATUS.bit.BUSERR)  SERCOM3->I2CM.STATUS.bit.BUSERR  = 1;
+  if (SERCOM3->I2CM.STATUS.bit.ARBLOST) SERCOM3->I2CM.STATUS.bit.ARBLOST = 1;
 }
 
-static void _i2c_clock_on(void){
-  PM->APBCMASK.reg |= I2C_PM_APBCMASK_BIT;
-  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(I2C_GCLK_ID_CORE) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
+static inline int i2c_wait_mb(uint32_t to_ms) {
+  uint32_t t0 = g_ms_ticks;
+  while (!SERCOM3->I2CM.INTFLAG.bit.MB) {
+    if (SERCOM3->I2CM.STATUS.bit.BUSERR)  { SERCOM3->I2CM.STATUS.bit.BUSERR  = 1; return -1; }
+    if (SERCOM3->I2CM.STATUS.bit.ARBLOST) { SERCOM3->I2CM.STATUS.bit.ARBLOST = 1; return -2; }
+    if ((uint32_t)(g_ms_ticks - t0) > to_ms) return -3;
+  }
+  return 0;
+}
+
+static inline int i2c_wait_sb(uint32_t to_ms) {
+  uint32_t t0 = g_ms_ticks;
+  while (!SERCOM3->I2CM.INTFLAG.bit.SB) {
+    if (SERCOM3->I2CM.STATUS.bit.BUSERR)  { SERCOM3->I2CM.STATUS.bit.BUSERR  = 1; return -1; }
+    if (SERCOM3->I2CM.STATUS.bit.ARBLOST) { SERCOM3->I2CM.STATUS.bit.ARBLOST = 1; return -2; }
+    if ((uint32_t)(g_ms_ticks - t0) > to_ms) return -3;
+  }
+  return 0;
+}
+
+static void i2c_apply_baud(uint32_t hz) {
+  if (hz == 0) hz = I2C_DEFAULT_HZ;
+  g_i2c_hz = hz;
+  uint32_t baud = (SystemCoreClock / (2u * hz)) - 5u;
+  if (baud > 255u) baud = 255u;
+  SERCOM3->I2CM.BAUD.reg = SERCOM_I2CM_BAUD_BAUD(baud & 0xFF);
+}
+
+/* -------- public helpers -------- */
+void i2c_force_idle(void) {
+  if (SERCOM3->I2CM.STATUS.bit.BUSERR)  SERCOM3->I2CM.STATUS.bit.BUSERR  = 1;
+  if (SERCOM3->I2CM.STATUS.bit.ARBLOST) SERCOM3->I2CM.STATUS.bit.ARBLOST = 1;
+  if (SERCOM3->I2CM.STATUS.bit.BUSSTATE != 1) {
+    SERCOM3->I2CM.STATUS.bit.BUSSTATE = 1; // IDLE
+    while (SERCOM3->I2CM.SYNCBUSY.bit.SYSOP);
+  }
+}
+
+int i2c_set_speed(uint32_t hz) {
+  i2c_apply_baud(hz);
+  return 0;
+}
+
+/* -------- init / reinit -------- */
+int i2c_init(uint32_t hz) {
+  PM->APBCMASK.reg |= PM_APBCMASK_SERCOM3;
+
+  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM3_GCLK_ID_CORE) |
+                      GCLK_CLKCTRL_GEN_GCLK0 |
+                      GCLK_CLKCTRL_CLKEN;
   while (GCLK->STATUS.bit.SYNCBUSY);
-}
 
-static inline uint8_t _baud_from_hz(uint32_t fref, uint32_t fscl){
-  if (fscl==0) fscl = 100000u;
-  int32_t baud = (int32_t)( (fref / (2u*fscl)) - 5 );
-  if (baud < 0) baud = 0; if (baud > 255) baud = 255; return (uint8_t)baud;
-}
+  PM->APBBMASK.reg |= PM_APBBMASK_PORT;
+  PORT->Group[0].PINCFG[22].bit.PMUXEN = 1; // SDA
+  PORT->Group[0].PINCFG[23].bit.PMUXEN = 1; // SCL
+  PORT->Group[0].PMUX[22/2].bit.PMUXE = PORT_PMUX_PMUXE_C_Val; // PA22 -> C
+  PORT->Group[0].PMUX[23/2].bit.PMUXO = PORT_PMUX_PMUXO_C_Val; // PA23 -> C
 
-static void _i2c_enable_master(uint32_t hz){
-  I2C_SERCOM->I2CM.CTRLA.bit.SWRST = 1;
-  while (I2C_SERCOM->I2CM.SYNCBUSY.bit.SWRST);
-  I2C_SERCOM->I2CM.CTRLA.reg =
+  SERCOM3->I2CM.CTRLA.bit.SWRST = 1;
+  while (SERCOM3->I2CM.SYNCBUSY.bit.SWRST);
+
+  SERCOM3->I2CM.CTRLA.reg =
       SERCOM_I2CM_CTRLA_MODE_I2C_MASTER |
-      SERCOM_I2CM_CTRLA_SCLSM |
-      SERCOM_I2CM_CTRLA_SPEED(0) |
-      SERCOM_I2CM_CTRLA_SDAHOLD(3);
-  I2C_SERCOM->I2CM.BAUD.reg = SERCOM_I2CM_BAUD_BAUD(_baud_from_hz(I2C_FREF_HZ, hz));
-  I2C_SERCOM->I2CM.CTRLA.bit.ENABLE = 1;
-  while (I2C_SERCOM->I2CM.SYNCBUSY.bit.ENABLE);
-  I2C_SERCOM->I2CM.STATUS.bit.BUSSTATE = 1; // IDLE
-  while (I2C_SERCOM->I2CM.SYNCBUSY.bit.SYSOP);
-}
+      SERCOM_I2CM_CTRLA_SDAHOLD(0x2) |
+      SERCOM_I2CM_CTRLA_SPEED(0x0);        // Standard/Fast, SCLSM OFF
+  SERCOM3->I2CM.CTRLB.reg = SERCOM_I2CM_CTRLB_SMEN; // Smart mode
+  while (SERCOM3->I2CM.SYNCBUSY.reg);
 
-static inline int _wait_mb(void){
-  while (!I2C_SERCOM->I2CM.INTFLAG.bit.MB){
-    if (I2C_SERCOM->I2CM.STATUS.bit.BUSERR) return -1;
-    if (I2C_SERCOM->I2CM.STATUS.bit.RXNACK) return -2;
-  }
+  i2c_apply_baud(hz);
+
+  SERCOM3->I2CM.CTRLA.bit.ENABLE = 1;
+  while (SERCOM3->I2CM.SYNCBUSY.bit.ENABLE);
+
+  SERCOM3->I2CM.STATUS.bit.BUSSTATE = 1; // IDLE
+  while (SERCOM3->I2CM.SYNCBUSY.bit.SYSOP);
+
   return 0;
 }
 
-static inline int _wait_sb(void){
-  while (!I2C_SERCOM->I2CM.INTFLAG.bit.SB){
-    if (I2C_SERCOM->I2CM.STATUS.bit.BUSERR) return -1;
+void i2c_swrst_reinit(void) {
+  SERCOM3->I2CM.CTRLA.bit.SWRST = 1;
+  while (SERCOM3->I2CM.SYNCBUSY.bit.SWRST);
+
+  SERCOM3->I2CM.CTRLA.reg =
+      SERCOM_I2CM_CTRLA_MODE_I2C_MASTER |
+      SERCOM_I2CM_CTRLA_SDAHOLD(0x2) |
+      SERCOM_I2CM_CTRLA_SPEED(0x0);        // SCLSM OFF
+  SERCOM3->I2CM.CTRLB.reg = SERCOM_I2CM_CTRLB_SMEN;
+  while (SERCOM3->I2CM.SYNCBUSY.reg);
+
+  i2c_apply_baud(g_i2c_hz);
+
+  SERCOM3->I2CM.CTRLA.bit.ENABLE = 1;
+  while (SERCOM3->I2CM.SYNCBUSY.bit.ENABLE);
+
+  i2c_force_idle();
+}
+
+/* -------- transfers -------- */
+int i2c_write(uint8_t addr7, const uint8_t *buf, uint32_t len) {
+  i2c_force_idle();
+
+  SERCOM3->I2CM.ADDR.reg = (addr7 << 1) | 0;     // W
+  if (i2c_wait_mb(20) != 0) { i2c_issue_stop(); return 1; }
+  if (SERCOM3->I2CM.STATUS.bit.RXNACK) { i2c_issue_stop(); return 2; }
+
+  for (uint32_t i = 0; i < len; i++) {
+    SERCOM3->I2CM.DATA.reg = buf[i];
+    if (i2c_wait_mb(20) != 0) { i2c_issue_stop(); return 3; }
+    if (SERCOM3->I2CM.STATUS.bit.RXNACK) { i2c_issue_stop(); return 4; }
   }
+  i2c_issue_stop();
   return 0;
 }
 
-static inline void _cmd_stop(void){
-  I2C_SERCOM->I2CM.CTRLB.bit.CMD = 3; // STOP
-  while (I2C_SERCOM->I2CM.SYNCBUSY.bit.SYSOP);
-}
+int i2c_read(uint8_t addr7, uint8_t *buf, uint32_t len) {
+  if (len == 0) return 0;
+  i2c_force_idle();
 
-// ---- public API ----
-void i2c_begin(uint32_t hz){
-  s_tx_len = s_rx_len = s_rx_idx = 0; s_addr7 = 0;
-  _i2c_port_init();
-  _i2c_clock_on();
-  _i2c_enable_master(hz ? hz : I2C_DEFAULT_HZ);
-}
+  SERCOM3->I2CM.ADDR.reg = (addr7 << 1) | 1;     // R
+  if (i2c_wait_sb(20) != 0) { i2c_issue_stop(); return 1; }
 
-void i2c_set_clock(uint32_t hz){
-  _i2c_enable_master(hz ? hz : I2C_DEFAULT_HZ);
-}
-
-void i2c_begin_tx(uint8_t addr7){
-  s_addr7 = addr7 & 0x7F;
-  s_tx_len = 0;
-}
-
-size_t i2c_write(const uint8_t *data, size_t len){
-  size_t n = 0; if (!data) return 0;
-  while (n < len && s_tx_len < I2C_TX_BUF_SZ){ s_tx[s_tx_len++] = data[n++]; }
-  return n;
-}
-
-size_t i2c_write_byte(uint8_t b){
-  if (s_tx_len >= I2C_TX_BUF_SZ) return 0; s_tx[s_tx_len++] = b; return 1;
-}
-
-uint8_t i2c_end_tx(int sendStop){
-  // Address + W
-  I2C_SERCOM->I2CM.ADDR.reg = ((uint32_t)s_addr7 << 1) | 0u;
-  if (_wait_mb() < 0){ _cmd_stop(); return 2; }
-  // Data bytes
-  for (size_t i = 0; i < s_tx_len; i++){
-    I2C_SERCOM->I2CM.DATA.reg = s_tx[i];
-    if (_wait_mb() < 0){ _cmd_stop(); return 3; }
-  }
-  if (sendStop){ _cmd_stop(); }
-  s_tx_len = 0; return 0;
-}
-
-size_t i2c_request_from(uint8_t addr7, size_t len, int sendStop){
-  s_rx_len = 0; s_rx_idx = 0; if (len > I2C_RX_BUF_SZ) len = I2C_RX_BUF_SZ;
-  // Address + R
-  I2C_SERCOM->I2CM.ADDR.reg = ((uint32_t)(addr7 & 0x7F) << 1) | 1u;
-  if (_wait_sb() < 0){ _cmd_stop(); return 0; }
-  for (size_t i = 0; i < len; i++){
-    if (i < (len-1)){
-      I2C_SERCOM->I2CM.CTRLB.bit.ACKACT = 0; // ACK
-      I2C_SERCOM->I2CM.CTRLB.bit.CMD = 2;    // read next
-      while (I2C_SERCOM->I2CM.SYNCBUSY.bit.SYSOP);
-      if (_wait_sb() < 0){ _cmd_stop(); return i; }
-      s_rx[s_rx_len++] = (uint8_t)I2C_SERCOM->I2CM.DATA.reg;
+  for (uint32_t i = 0; i < len; i++) {
+    if (i2c_wait_sb(20) != 0) { i2c_issue_stop(); return 2; }
+    if (i == (len - 1)) {
+      SERCOM3->I2CM.CTRLB.bit.ACKACT = 1;       // NACK next
+      buf[i] = SERCOM3->I2CM.DATA.reg;         // read -> NACK
+      i2c_issue_stop();                        // STOP
     } else {
-      I2C_SERCOM->I2CM.CTRLB.bit.ACKACT = 1; // NACK last
-      if (sendStop){ I2C_SERCOM->I2CM.CTRLB.bit.CMD = 3; } else { I2C_SERCOM->I2CM.CTRLB.bit.CMD = 2; }
-      while (I2C_SERCOM->I2CM.SYNCBUSY.bit.SYSOP);
-      s_rx[s_rx_len++] = (uint8_t)I2C_SERCOM->I2CM.DATA.reg;
+      SERCOM3->I2CM.CTRLB.bit.ACKACT = 0;      // ACK
+      buf[i] = SERCOM3->I2CM.DATA.reg;
     }
   }
-  return s_rx_len;
+  return 0;
 }
-
-int i2c_read(void){ if (s_rx_idx >= s_rx_len) return -1; return (int)s_rx[s_rx_idx++]; }
-size_t i2c_available(void){ return (s_rx_len - s_rx_idx); }
