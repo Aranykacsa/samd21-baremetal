@@ -1,0 +1,10 @@
+# Build output
+.build/
+.out/
+
+# Optional: object files, dependency files, and binaries
+*.o
+*.d
+*.elf
+*.bin
+*.hex
