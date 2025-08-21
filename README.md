@@ -1,24 +1,24 @@
-# SAMD21G18A Bare-Metal Example (PWM Fade on PA17)
+# SAMD21G18A Bare-Metal Example
 
 This is a **bare-metal C project** for the **Microchip/Atmel SAMD21G18A** (ARM Cortex-M0+).
-It fades the on-board LED on **PA17** using **TCC2 WO[1] PWM**.
 No Arduino, ASF, or HAL — just **CMSIS** and the **SAMD21 device pack**.
-
 ---
-
+(https://users.ece.cmu.edu/~eno/coding/CCodingStandard.html#descriptive)
+---
 ## Features
 - Target: **ATSAMD21G18A** @ 48 MHz
-- PWM output on **PA17** (TCC2/WO[1])
-- Smooth fading via double-buffered duty (`CCBUF`)
 - Pure bare-metal + CMSIS
 - Outputs `.elf`, `.bin`, `.hex`
 - Flashable with **OpenOCD + CMSIS-DAP**
+- Mainly for learning purposes
 
 ---
 
 ## Dependencies
 
 Original source of information: `https://www.arm.com/technologies/cmsis`
+
+This document is not complet (probably).
 
 Install toolchain & debugger (Fedora example):
 
