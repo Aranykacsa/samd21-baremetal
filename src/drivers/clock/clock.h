@@ -7,8 +7,8 @@
 #include "system_samd21.h"
 
 /* ---------- accurate 1 ms tick ---------- */
-extern volatile uint32_t g_ms;
 void SysTick_Handler(void);
 void delay_ms(uint32_t ms);
+uint32_t millis(void);
 
 #endif
