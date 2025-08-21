@@ -13,6 +13,6 @@ void delay_ms(uint32_t ms) {
   while ((g_ms - start) < ms) { __NOP(); }
 }
 
-uint32_t millis(void) {
+uint32_t get_uptime(void) {
   return g_ms;
 }

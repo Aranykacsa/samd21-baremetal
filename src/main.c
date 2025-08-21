@@ -5,12 +5,7 @@
 #include "system_samd21.h"
 #include "uart.h"
 #include "clock.h"
-
-#define PIN_SERIAL1_TX   (10)  // PA10
-#define PAD_SERIAL1_TX   (1)   // TXPO = 0
-#define PIN_SERIAL1_RX   (11)  // PA11
-#define PAD_SERIAL1_RX   (3)   // RXPO = 3
-
+#include "variables.h"
 
 int main(void) {
 
@@ -24,26 +19,26 @@ int main(void) {
 
   delay_ms(3000);
  
-  uart_puts("\r\n", SERCOM2);
+  uart_write_string(SERCOM2, "\r\n");
   char buf[64];
-  size_t n = uart_read_blocking(buf, sizeof(buf), SERCOM2, 1000);
+  size_t n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
   if (n > 0) {
       printf("Loopback: %s\n", buf);   // semihosting console
   } else {
       printf("No loopback!\n");
   }
-  uart_puts("radio get freq\r\n", SERCOM2);
+  uart_write_string(SERCOM2, "radio get freq\r\n");
 
-  n = uart_read_blocking(buf, sizeof(buf), SERCOM2, 1000);
+  n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
   if (n > 0) {
       printf("Loopback: %s\n", buf);   // semihosting console
   } else {
       printf("No loopback!\n");
   }
 
-  uart_puts("radio set freq 868100000\r\n", SERCOM2);
+  uart_write_string(SERCOM2, "radio set freq 868100000\r\n");
 
-  n = uart_read_blocking(buf, sizeof(buf), SERCOM2, 1000);
+  n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
   if (n > 0) {
       printf("Loopback: %s\n", buf);   // semihosting console
   } else {

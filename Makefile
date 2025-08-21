@@ -30,8 +30,8 @@ SRCS := \
   $(ENV)/startup_samd21_gcc.c
 
 # ===== Outputs =====
-BUILDDIR := build
-OUTDIR   := out
+BUILDDIR := .build
+OUTDIR   := .out
 TARGET   := samd21g18-blinky
 ELF := $(OUTDIR)/$(TARGET).elf
 HEX := $(OUTDIR)/$(TARGET).hex

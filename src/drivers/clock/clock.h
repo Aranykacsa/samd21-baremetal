@@ -9,6 +9,6 @@
 /* ---------- accurate 1 ms tick ---------- */
 void SysTick_Handler(void);
 void delay_ms(uint32_t ms);
-uint32_t millis(void);
+uint32_t get_uptime(void);
 
 #endif
