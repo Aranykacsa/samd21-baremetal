@@ -27,18 +27,18 @@ static uint8_t aht20_read(i2c_t* bus, uint8_t addr7, float *temp_c, float *hum_p
     if (i2c_write(bus, addr7, trig, 3) != 0) return 1;
   }
 
-  delay_ms(90);                                 // conservative conversion wait
+  delay_ms(90);                                
 
   uint8_t d[6];
-  if (i2c_read(bus, addr7, d, 6) != 0) {
+  if (i2c_read(bus, addr7, d) != 0) {
     i2c_swrst_reinit(bus);
     delay_ms(2);
-    if (i2c_read(bus, addr7, d, 6) != 0) return 2;
+    if (i2c_read(bus, addr7, d) != 0) return 2;
   }
 
-  if (d[0] & 0x80) {                            // still busy
+  if (d[0] & 0x80) {                          
     delay_ms(10);
-    if (i2c_read(bus, addr7, d, 6) != 0) return 3;
+    if (i2c_read(bus, addr7, d) != 0) return 3;
     if (d[0] & 0x80) return 4;
   }
 

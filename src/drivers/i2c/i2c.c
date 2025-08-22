@@ -189,7 +189,8 @@ int i2c_write(i2c_t* bus, uint8_t addr7, const uint8_t* buf, uint32_t len) {
   return 0;
 }
 
-int i2c_read(i2c_t* bus, uint8_t addr7, uint8_t* buf, uint32_t len) {
+int i2c_read(i2c_t* bus, uint8_t addr7, uint8_t* buf) {
+  size_t len = sizeof(&buf);
   if (len == 0) return 0;
   Sercom* s = bus->sercom;
 

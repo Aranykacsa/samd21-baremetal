@@ -28,6 +28,6 @@ int  i2c_set_speed(i2c_t* bus, uint32_t hz);
 void i2c_force_idle(i2c_t* bus);
 void i2c_swrst_reinit(i2c_t* bus);
 int  i2c_write(i2c_t* bus, uint8_t addr7, const uint8_t* buf, uint32_t len);
-int  i2c_read (i2c_t* bus, uint8_t addr7,       uint8_t* buf, uint32_t len);
+int  i2c_read (i2c_t* bus, uint8_t addr7,       uint8_t* buf);
 
 #endif // I2C_H
