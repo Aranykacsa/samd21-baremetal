@@ -3,16 +3,6 @@
 #include <stddef.h> 
 
 #include <stdio.h>
-#ifndef SD_DEBUG
-#define SD_DEBUG 1
-#endif
-
-#if SD_DEBUG
-#define DBG_PRINTF(...)  printf(__VA_ARGS__)
-#else
-#define DBG_PRINTF(...)
-#endif
-
 
 /* -------- Pin map (SERCOM1: DOPO=0 SCK on PAD1, MOSI PAD0, MISO DIPO=3) ----- */
 #define SD_MOSI_PORT 0
@@ -158,20 +148,6 @@ static void sd_clock_idle(uint32_t clocks){
   for (uint32_t i = 0; i < clocks/8u; i++) sd_spi_send(0xFF);
 }
 
-/* CRC7 for commands (polynomial x^7 + x^3 + 1, init 0) */
-/*static uint8_t crc7_cmd(const uint8_t *d, uint32_t n){
-  uint8_t crc = 0;
-  for (uint32_t i=0;i<n;i++){
-    uint8_t x = d[i];
-    for (int b=0;b<8;b++){
-      crc <<= 1;
-      if ((x & 0x80) ^ (crc & 0x80)) crc ^= 0x09;
-      x <<= 1;
-    }
-  }
-  return (crc << 1) | 1; // append end bit
-}*/
-
 static uint8_t sd_wait_r1(uint32_t ms){
   /* Wait until a non-0xFF appears (R1), or timeout */
   uint32_t t = ms;
@@ -208,7 +184,6 @@ static uint8_t sd_cmd_r1(uint8_t cmd, uint32_t arg, uint8_t crc){
   sd_spi_send_bytes(frame, 6);
 
   uint8_t r1 = sd_wait_r1(SD_CMD_TIMEOUT);
-  DBG_PRINTF("[SD] CMD%u arg=0x%08lX -> R1=0x%02X\r\n", cmd, (unsigned long)arg, r1);
   return r1;
 }
 
@@ -274,7 +249,6 @@ static int sd_read_ocr_and_capacity(void){
   uint8_t ocr[4];
   for (int i=0; i<4; i++) {
     ocr[i] = sd_spi_recv();
-    DBG_PRINTF("[SD] OCR[%d]=0x%02X\r\n", i, ocr[i]);
   }
   sd_cs_release();
 
@@ -323,16 +297,12 @@ int sd_read_block(uint32_t lba, uint8_t *dst512){
   if (r1 != 0x00){ sd_cs_release(); return -1; }
 
   if (sd_wait_token(0xFE, SD_TOKEN_TIMEOUT) != 0){
-    DBG_PRINTF("[SD] Timeout waiting for data token\r\n");
     sd_cs_release(); return -2;
   }
-  DBG_PRINTF("[SD] Got data token\r\n");
 
   for (int i=0; i<16; i++) {
     dst512[i] = sd_spi_recv();
-    DBG_PRINTF("%02X ", dst512[i]);
   }
-  DBG_PRINTF("\r\n");
   // read the rest
   sd_spi_recv_bytes(dst512+16, 512-16);
   (void)sd_spi_recv(); (void)sd_spi_recv();

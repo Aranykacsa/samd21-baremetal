@@ -30,7 +30,6 @@ int main(void) {
 
   int rc = sd_init();
   printf("[SD] init rc=%d\r\n", rc);
-  fflush(stdout);
 
   if (rc != 0) {
     printf("[SD] init failed (rc=%d)\r\n", rc);
