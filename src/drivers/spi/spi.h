@@ -13,44 +13,11 @@ typedef struct {
   bool    active_low;
 } spi_cs_t;
 
-static inline void spi_cs_init(spi_cs_t cs) {
-  PortGroup *g = &PORT->Group[cs.port];
-  g->DIRSET.reg = (1u << cs.pin);
-  if (cs.active_low) g->OUTSET.reg = (1u << cs.pin); // idle high
-  else               g->OUTCLR.reg = (1u << cs.pin); // idle low
-}
-static inline void spi_cs_assert(spi_cs_t cs) {
-  PortGroup *g = &PORT->Group[cs.port];
-  if (cs.active_low) g->OUTCLR.reg = (1u << cs.pin);
-  else               g->OUTSET.reg = (1u << cs.pin);
-}
-static inline void spi_cs_deassert(spi_cs_t cs) {
-  PortGroup *g = &PORT->Group[cs.port];
-  if (cs.active_low) g->OUTSET.reg = (1u << cs.pin);
-  else               g->OUTCLR.reg = (1u << cs.pin);
-}
-
 // ===== Core driver =====
 typedef struct {
   SercomSpi *spi;           // e.g. &SERCOM0->SPI
   uint32_t   gclk_freq_hz;  // frequency of the GCLK you feed to SERCOMx core
 } spi_t;
-
-/**
- * Minimal pinmux helper.
- * Pass the PORT group (0->A, 1->B), pin number, and PMUX function value:
- *   MUX C = 2 (SERCOM), MUX D = 3 (SERCOM ALT)
- */
-static inline void spi_pmux(uint8_t port, uint8_t pin, uint8_t mux)
-{
-  PortGroup *g = &PORT->Group[port];
-  g->PINCFG[pin].bit.PMUXEN = 1;
-  if ((pin & 1u) == 0) { // even
-    g->PMUX[pin >> 1].bit.PMUXE = mux;
-  } else {
-    g->PMUX[pin >> 1].bit.PMUXO = mux;
-  }
-}
 
 /**
  * Connects a GCLK to SERCOMx core and enables APBC mask.

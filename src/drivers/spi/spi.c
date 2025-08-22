@@ -1,12 +1,15 @@
 #include "spi.h"
 
-static inline void _spi_clear_errors(SercomSpi *spi) {
+inline void _spi_clear_errors(SercomSpi *spi) {
   if (spi->STATUS.reg & SERCOM_SPI_STATUS_BUFOVF) {
     spi->STATUS.reg = SERCOM_SPI_STATUS_BUFOVF;  // write-1-to-clear
   }
 }
 
-
+inline void _sercom_sync(SercomSpi *s) {
+  // For SERCOM SPI on SAMD21, SYNCBUSY is its own register
+  while (s->SYNCBUSY.reg) { __NOP(); }
+}
 
 void spi_enable_clock(uint8_t gclk_id_core, uint32_t apbc_mask_bit, uint8_t gclk_src_id)
 {

@@ -2,6 +2,8 @@
     "files.associations": {
         "stddef.h": "c",
         "cstdint": "cpp",
-        "stdint.h": "c"
+        "stdint.h": "c",
+        "spi.h": "c",
+        "stdbool.h": "c"
     }
 }
