@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <stdio.h>
 
-#include "spi.h"
 #include "sd-card.h"
 #include "i2c.h"
 #include "clock.h"
