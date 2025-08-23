@@ -2,6 +2,7 @@
 #include "samd21.h"
 #include "uart.h"
 #include "clock.h"
+#include "variables.h"
 
 static void port_pinmux(uint8_t port, uint8_t pin, uint8_t function, int input_en) {
     // Enable PMUX on this pin
@@ -16,39 +17,34 @@ static void port_pinmux(uint8_t port, uint8_t pin, uint8_t function, int input_e
     }
 }
 
-void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint8_t rx_pin, uint8_t rxpo, uint8_t pmux) {
+void uart_init(uart_t* bus) {
   uint8_t gclk_id_core = 0, gclk_id_slow = 0;
-  if (sercom == SERCOM0) {
+  if (bus->sercom == SERCOM0) {
       PM->APBCMASK.bit.SERCOM0_ = 1;
       gclk_id_core = SERCOM0_GCLK_ID_CORE;
       gclk_id_slow = SERCOM0_GCLK_ID_SLOW;
-  } else if (sercom == SERCOM1) {
+  } else if (bus->sercom == SERCOM1) {
       PM->APBCMASK.bit.SERCOM1_ = 1;
       gclk_id_core = SERCOM1_GCLK_ID_CORE;
       gclk_id_slow = SERCOM1_GCLK_ID_SLOW;
-  } else if (sercom == SERCOM2) {
+  } else if (bus->sercom == SERCOM2) {
       PM->APBCMASK.bit.SERCOM2_ = 1;
       gclk_id_core = SERCOM2_GCLK_ID_CORE;
       gclk_id_slow = SERCOM2_GCLK_ID_SLOW;
-  } else if (sercom == SERCOM3) {
+  } else if (bus->sercom == SERCOM3) {
       PM->APBCMASK.bit.SERCOM3_ = 1;
       gclk_id_core = SERCOM3_GCLK_ID_CORE;
       gclk_id_slow = SERCOM3_GCLK_ID_SLOW;
-  } else if (sercom == SERCOM4) {
+  } else if (bus->sercom == SERCOM4) {
       PM->APBCMASK.bit.SERCOM4_ = 1;
       gclk_id_core = SERCOM4_GCLK_ID_CORE;
       gclk_id_slow = SERCOM4_GCLK_ID_SLOW;
-  } else if (sercom == SERCOM5) {
+  } else if (bus->sercom == SERCOM5) {
       PM->APBCMASK.bit.SERCOM5_ = 1;
       gclk_id_core = SERCOM5_GCLK_ID_CORE;
       gclk_id_slow = SERCOM5_GCLK_ID_SLOW;
   } 
 
-  if (!pmux) {
-    pmux = PORT_PMUX_PMUXE_D_Val;
-  }
-
-  // Feed SERCOM5 core + slow
   GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(gclk_id_core) |
                       GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
   while (GCLK->STATUS.bit.SYNCBUSY);
@@ -56,38 +52,35 @@ void uart_init(Sercom* sercom, uint32_t baud, uint8_t tx_pin, uint8_t txpo, uint
                       GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
   while (GCLK->STATUS.bit.SYNCBUSY);
 
-  port_pinmux(0, tx_pin, pmux, 0);  // TX (output, no input buffer)
-  port_pinmux(0, rx_pin, pmux, 1);  // RX (needs input buffer)
+  port_pinmux(bus->tx_pad, bus->tx_pin, bus->pmux_func, 0);
+  port_pinmux(bus->rx_pad, bus->rx_pin, bus->pmux_func, 1);
 
   // Reset
-  sercom->USART.CTRLA.bit.SWRST = 1;
-  while (sercom->USART.SYNCBUSY.bit.SWRST);
+  bus->sercom->USART.CTRLA.bit.SWRST = 1;
+  while (bus->sercom->USART.SYNCBUSY.bit.SWRST);
 
   // USART mode, internal clock, LSB first, 16x oversample
   // TX on PAD2 => TXPO=1, RX on PAD3 => RXPO=3
-  sercom->USART.CTRLA.reg =
+  bus->sercom->USART.CTRLA.reg =
       SERCOM_USART_CTRLA_MODE_USART_INT_CLK |
       SERCOM_USART_CTRLA_DORD |
       SERCOM_USART_CTRLA_SAMPR(0) |
-      SERCOM_USART_CTRLA_TXPO(txpo) |
-      SERCOM_USART_CTRLA_RXPO(rxpo);
+      SERCOM_USART_CTRLA_TXPO(bus->tx_pad) |
+      SERCOM_USART_CTRLA_RXPO(bus->rx_pad);
 
   // Enable TX & RX, 8-bit, 1 stop bit (SBMODE=0 -> omit)
-  sercom->USART.CTRLB.reg =
+  bus->sercom->USART.CTRLB.reg =
       SERCOM_USART_CTRLB_CHSIZE(0) |
       SERCOM_USART_CTRLB_TXEN |
       SERCOM_USART_CTRLB_RXEN;
-  while (sercom->USART.SYNCBUSY.bit.CTRLB);
+  while (bus->sercom->USART.SYNCBUSY.bit.CTRLB);
 
-  // Baud = 65536 * (1 - 16*baud/Fref), Fref=48 MHz
-  uint32_t ref = SystemCoreClock; // 1 MHz
-  uint64_t br = (uint64_t)65536 * (ref - 16*baud) / ref;
-  sercom->USART.BAUD.reg = (uint16_t)br;
+  uint64_t br = (uint64_t)65536 * (SystemCoreClock - 16*bus->baud) / SystemCoreClock;
+  bus->sercom->USART.BAUD.reg = (uint16_t)br;
 
-  //sercom->USART.BAUD.reg = baud;
 
-  sercom->USART.CTRLA.bit.ENABLE = 1;
-  while (sercom->USART.SYNCBUSY.bit.ENABLE);
+  bus->sercom->USART.CTRLA.bit.ENABLE = 1;
+  while (bus->sercom->USART.SYNCBUSY.bit.ENABLE);
 }
 
 void uart_write_char(Sercom* sercom, char c) {

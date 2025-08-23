@@ -1,6 +1,7 @@
 #include "sd-card.h"
 #include "samd21.h"
 #include <stddef.h> 
+#include "clock.h"
 
 #include <stdio.h>
 
@@ -33,15 +34,6 @@
 
 /* -------- Locals ------------------------------------------------------------ */
 static int g_is_sdhc = 0;
-
-/* crude delay (busy-wait) using 48 MHz core */
-static void delay_us(uint32_t us) {
-  /* ~6 cycles per loop (very rough); tune if needed */
-  volatile uint32_t cycles = (SystemCoreClock / 6000000u) * us;
-  while (cycles--) __asm__ volatile("nop");
-}
-
-static void delay_ms(uint32_t ms){ while (ms--) delay_us(1000); }
 
 /* -------- SERCOM1 SPI low-level -------------------------------------------- */
 

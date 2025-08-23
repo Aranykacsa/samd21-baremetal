@@ -1,46 +1,46 @@
 // samd21_aht20_sercom3.c
 #include "samd21.h"
-#include "system_samd21.h"
 #include <stdint.h>
 #include <stdio.h>
-
-#include "sd-card.h"
-#include "i2c.h"
-#include "clock.h"
+#include "system_samd21.h"
 #include "uart.h"
-
-static uint8_t buf[512];
+#include "clock.h"
+#include "variables.h"
 
 int main(void) {
-  SystemInit();
-  SysTick_Config(SystemCoreClock / 1000);
 
-  printf("\r\n[BOOT] SAMD21 SD-card SPI test\r\n");
+  SystemInit();                               // 48 MHz clocks
+  SysTick_Config(SystemCoreClock / 1000);     // 1 ms tick
 
-  int rc = sd_init();
-  printf("[SD] init rc=%d\r\n", rc);
+  printf("INIT\r\n");
 
-  if (rc != 0) {
-    printf("[SD] init failed (rc=%d)\r\n", rc);
+  uart_init(&uart_s2);
+
+  delay_ms(3000);
+ 
+  uart_write_string(SERCOM2, "\r\n");
+  char buf[64];
+  size_t n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
+  if (n > 0) {
+      printf("Loopback: %s\n", buf);   // semihosting console
+  } else {
+      printf("No loopback!\n");
   }
-  printf("[SD] init OK, card type: %s\r\n", sd_is_sdhc() ? "SDHC/SDXC" : "SDSC");
+  uart_write_string(SERCOM2, "radio get freq\r\n");
 
-  /* Read LBA 0 */
-  rc = sd_read_block(0, buf);
-  if (rc != 0) {
-    printf("[SD] read block 0 failed (rc=%d)\r\n", rc);
+  n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
+  if (n > 0) {
+      printf("Loopback: %s\n", buf);   // semihosting console
+  } else {
+      printf("No loopback!\n");
   }
-  printf("[SD] block 0 read OK\r\nFirst 16 bytes:\r\n");
-  for (int i=0;i<16;i++) {
-    printf("%02X ", buf[i]);
-  }
-  printf("\r\n");
 
-  /* Echo write test to LBA 1 */
-  for (int i=0;i<512;i++) buf[i] = (uint8_t)i;
-  rc = sd_write_block(1, buf);
-  if (rc != 0) {
-    printf("[SD] write block 1 failed (rc=%d)\r\n", rc);
+  uart_write_string(SERCOM2, "radio set freq 868100000\r\n");
+
+  n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
+  if (n > 0) {
+      printf("Loopback: %s\n", buf);   // semihosting console
+  } else {
+      printf("No loopback!\n");
   }
-  printf("[SD] block 1 write OK\r\n");
 }
