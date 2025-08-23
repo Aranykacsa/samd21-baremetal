@@ -3,8 +3,6 @@
 This is a **bare-metal C project** for the **Microchip/Atmel SAMD21G18A** (ARM Cortex-M0+).
 No Arduino, ASF, or HAL — just **CMSIS** and the **SAMD21 device pack**.
 ---
-(https://users.ece.cmu.edu/~eno/coding/CCodingStandard.html#descriptive)
----
 ## Features
 - Target: **ATSAMD21G18A** @ 48 MHz
 - Pure bare-metal + CMSIS
@@ -206,3 +204,5 @@ int main(void) {
   }
 }
 ```
+---
+> Trying to keep to this styling guide: `https://users.ece.cmu.edu/~eno/coding/CCodingStandard.html#descriptive`
