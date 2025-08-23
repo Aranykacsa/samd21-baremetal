@@ -14,6 +14,9 @@ DFP_INC ?= $(HOME)/.cache/arm/packs/Keil/SAMD21_DFP/1.3.1/Device/SAMD21A/Include
 ENV := env
 SRC := src
 
+# ==== Peripherals =====
+SD    ?= $(SRC)/peripherals/sd
+
 # ==== Drivers =====
 CLOCK ?= $(SRC)/drivers/clock
 I2C   ?= $(SRC)/drivers/i2c
@@ -22,6 +25,7 @@ UART  ?= $(SRC)/drivers/uart
 # ===== Sources =====
 SRCS := \
   $(SRC)/main.c \
+  $(SD)/sd-card.c \
   $(CLOCK)/clock.c \
   $(I2C)/i2c.c \
   $(UART)/uart.c \
@@ -45,7 +49,7 @@ CFLAGS := -Os -ffunction-sections -fdata-sections \
   -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
   -std=c11 -g3 \
   -D_RTE_ -D$(PART) -MMD -MP \
-  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART) -I$(CLOCK)
+  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART) -I$(CLOCK) -I$(SD)
 
 # Linker flags — put specs here ONCE
 LDFLAGS := \
