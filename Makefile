@@ -61,9 +61,9 @@ OBJS := $(SRCS:%=$(BUILDDIR)/%.obj)
 DEPS := $(OBJS:.obj=.d)
 
 # ===== Rules =====
-.PHONY: all clean flash adv
+.PHONY: clean build flash quick
 
-all: $(ELF) $(HEX) $(BIN)
+build: $(ELF) $(HEX) $(BIN)
 	$(SIZE) $(ELF)
 
 $(BUILDDIR)/%.c.obj: %.c
@@ -95,7 +95,7 @@ flash: $(ELF)
 	$(OPENOCD) -f $(OPENOCD_IF) -f $(OPENOCD_TARGET) \
 		-c "init; arm semihosting enable; program $(ELF) verify; reset run"
 
-adv:
+quick:
 	$(MAKE) clean
-	$(MAKE) all
+	$(MAKE) build
 	$(MAKE) flash
