@@ -15,18 +15,36 @@ No Arduino, ASF, or HAL — just **CMSIS** and the **SAMD21 device pack**.
 ---
 
 ## Dependencies
+> This document is not complet (probably).
 
-Original source of information: `https://www.arm.com/technologies/cmsis`
+### Install toolchain & debugger
 
-This document is not complet (probably).
-
-Install toolchain & debugger (Fedora example):
-
+Arch Linux:
 ```bash
-sudo dnf install -y arm-none-eabi-gcc-cs arm-none-eabi-newlib openocd dos2unix
+sudo pacman -S arm-none-eabi-gcc arm-none-eabi-binutils arm-none-eabi-newlib openocd dos2unix
+yay -S cmsis-toolbox
+
+echo 'export PATH="/opt/cmsis-toolbox/bin:$PATH"' >> ~/.bashrc
+echo 'export CMSIS_PACK_ROOT="$HOME/.cache/arm/packs"' >> ~/.bashrc
+source ~/.bashrc
+
+sudo ln -s /opt/cmsis-toolbox/bin/packchk /usr/local/bin/PackChk
 ```
 
-Install **CMSIS** + **SAMD21 Device Pack** using `cpackget`:
+### Verification:
+```bash
+command -v packchk
+packchk --version
+command -v cpackget
+```
+
+You have to download the zip from: 
+```bash 
+https://www.arm.com/technologies/cmsis
+```
+Then run `./gen_pack.sh` (no sudo required).
+
+### Install **CMSIS** + **SAMD21 Device Pack** using `cpackget`:
 
 ```bash
 cpackget init https://www.keil.com/pack/index.pidx
@@ -63,16 +81,28 @@ samd21g18-baremetal/
 
 ## Building
 
+Clean:
 ```bash
-make clean && make -j
+make clean
 ```
 
-Artifacts are created in `out/`:
+Build: 
+```bash
+make -j
+```
+
+Or both of them shortly:
+```bash
+make build
+```
+
+
+Artifacts are created in `.out/`:
 
 ```
-out/samd21g18-blinky.elf
-out/samd21g18-blinky.bin
-out/samd21g18-blinky.hex
+.out/samd21g18-blinky.elf
+.out/samd21g18-blinky.bin
+.out/samd21g18-blinky.hex
 ```
 
 If you hit:
@@ -105,9 +135,15 @@ openocd -f interface/cmsis-dap.cfg -f target/at91samdXX.cfg \
   -c "program out/samd21g18-blinky.elf verify reset exit"
 ```
 
-Easy to use command
+or
+
 ```bash
-make clean && make -j && make flash
+make flash
+```
+
+For quick clean, build and flash run:
+```bash
+make quick
 ```
 
 ---
