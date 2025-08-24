@@ -18,6 +18,7 @@ SRC := src
 SD    ?= $(SRC)/peripherals/sd
 
 # ==== Drivers =====
+SPI   ?= $(SRC)/drivers/spi
 CLOCK ?= $(SRC)/drivers/clock
 I2C   ?= $(SRC)/drivers/i2c
 UART  ?= $(SRC)/drivers/uart
@@ -25,6 +26,8 @@ UART  ?= $(SRC)/drivers/uart
 # ===== Sources =====
 SRCS := \
   $(SRC)/main.c \
+  $(SRC)/variables.c \
+  $(SPI)/spi.c \
   $(SD)/sd-card.c \
   $(CLOCK)/clock.c \
   $(I2C)/i2c.c \
@@ -49,7 +52,7 @@ CFLAGS := -Os -ffunction-sections -fdata-sections \
   -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
   -std=c11 -g3 \
   -D_RTE_ -D$(PART) -MMD -MP \
-  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART) -I$(CLOCK) -I$(SD)
+  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART) -I$(CLOCK) -I$(SD) -I$(SPI)
 
 # Linker flags — put specs here ONCE
 LDFLAGS := \
