@@ -83,48 +83,50 @@ void uart_init(uart_t* bus) {
   while (bus->sercom->USART.SYNCBUSY.bit.ENABLE);
 }
 
-void uart_write_char(Sercom* sercom, char c) {
-  while (!sercom->USART.INTFLAG.bit.DRE);
-  sercom->USART.DATA.reg = (uint16_t)c;
+void uart_write_char(uart_t* bus, char c) {
+  while (!bus->sercom->USART.INTFLAG.bit.DRE);
+  bus->sercom->USART.DATA.reg = (uint16_t)c;
 }
 
-void uart_write_string(Sercom* sercom, const char *s) {
+void uart_write_string(uart_t* bus, const char *s) {
   while (*s) {
-    uart_write_char(sercom, *s++);
+    uart_write_char(bus, *s++);
   }
 }
 
-int uart_read_char_blocking(Sercom* sercom) {
-  while (!sercom->USART.INTFLAG.bit.RXC);
-  return (int)(sercom->USART.DATA.reg & 0xFF);
+int uart_read_char_blocking(uart_t* bus) {
+  while (!bus->sercom->USART.INTFLAG.bit.RXC);
+  return (int)(bus->sercom->USART.DATA.reg & 0xFF);
 }
 
-int uart_try_read(Sercom* sercom) {
-  if (!sercom->USART.INTFLAG.bit.RXC) return -1;
-  return (int)(sercom->USART.DATA.reg & 0xFF);
+int uart_try_read(uart_t* bus) {
+  if (!bus->sercom->USART.INTFLAG.bit.RXC) return -1;
+  return (int)(bus->sercom->USART.DATA.reg & 0xFF);
 }
 
-size_t uart_read_string(Sercom* sercom, char *buf, size_t maxlen) {
+size_t uart_read_string(uart_t*bus, char *buf) {
   size_t n = 0;
-  while (n < maxlen && sercom->USART.INTFLAG.bit.RXC) {
-    buf[n++] = (sercom->USART.DATA.reg & 0xFF);
+  size_t len = sizeof(buf);
+  while (n < len && bus->sercom->USART.INTFLAG.bit.RXC) {
+    buf[n++] = (bus->sercom->USART.DATA.reg & 0xFF);
   }
   return n;
 }
 
 
-size_t uart_read_string_blocking(Sercom* sercom, char *buf, size_t maxlen, uint32_t timeout_ms) {
+size_t uart_read_string_blocking(uart_t* bus, char *buf, uint32_t timeout_ms) {
     size_t n = 0;
+    size_t len = sizeof(buf);
     uint32_t start = get_uptime();
-    while (n < maxlen - 1) {            // leave room for '\0'
-        while (!sercom->USART.INTFLAG.bit.RXC) {
+    while (n < len - 1) {            // leave room for '\0'
+        while (!bus->sercom->USART.INTFLAG.bit.RXC) {
           uint32_t now = get_uptime();
             if ((now - start) >= timeout_ms) {
                 buf[n] = '\0';          // terminate string
                 return n;               // timeout reached
             }
         }
-        buf[n++] = (sercom->USART.DATA.reg & 0xFF);
+        buf[n++] = (bus->sercom->USART.DATA.reg & 0xFF);
     }
     buf[n] = '\0';
     return n;

@@ -1,4 +1,3 @@
-// samd21_aht20_sercom3.c
 #include "samd21.h"
 #include <stdint.h>
 #include <stdio.h>
@@ -10,7 +9,7 @@
 int main(void) {
 
   SystemInit();                               // 48 MHz clocks
-  SysTick_Config(SystemCoreClock / 1000);     // 1 ms tick
+  SysTick_Config(SystemCoreClock / 1000);
 
   printf("INIT\r\n");
 
@@ -18,28 +17,28 @@ int main(void) {
 
   delay_ms(3000);
  
-  uart_write_string(SERCOM2, "\r\n");
+  uart_write_string(&uart_s2, "\r\n");
   char buf[64];
-  size_t n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
+  size_t n = uart_read_string_blocking(&uart_s2, buf, 1000);
   if (n > 0) {
-      printf("Loopback: %s\n", buf);   // semihosting console
+      printf("Loopback: %s\n", buf);   
   } else {
       printf("No loopback!\n");
   }
-  uart_write_string(SERCOM2, "radio get freq\r\n");
+  uart_write_string(&uart_s2, "radio get freq\r\n");
 
-  n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
+  n = uart_read_string_blocking(&uart_s2, buf, 1000);
   if (n > 0) {
-      printf("Loopback: %s\n", buf);   // semihosting console
+      printf("Loopback: %s\n", buf);   
   } else {
       printf("No loopback!\n");
   }
 
-  uart_write_string(SERCOM2, "radio set freq 868100000\r\n");
+  uart_write_string(&uart_s2, "radio set freq 868100000\r\n");
 
-  n = uart_read_string_blocking(SERCOM2, buf, sizeof(buf), 1000);
+  n = uart_read_string_blocking(&uart_s2, buf, 1000);
   if (n > 0) {
-      printf("Loopback: %s\n", buf);   // semihosting console
+      printf("Loopback: %s\n", buf);
   } else {
       printf("No loopback!\n");
   }
