@@ -1,333 +1,314 @@
-#include "sd-card.h"
 #include "samd21.h"
-#include <stddef.h> 
+#include <stdint.h>
+#include <stddef.h>
 #include "clock.h"
-
 #include <stdio.h>
+#include "variables.h"
 
-/* -------- Pin map (SERCOM1: DOPO=0 SCK on PAD1, MOSI PAD0, MISO DIPO=3) ----- */
-#define SD_MOSI_PORT 0
-#define SD_MOSI_PIN  16  /* PA16 = SERCOM1 PAD0 */
-#define SD_SCK_PORT  0
-#define SD_SCK_PIN   17  /* PA17 = SERCOM1 PAD1 */
-#define SD_MISO_PORT 0
-#define SD_MISO_PIN  19  /* PA19 = SERCOM1 PAD3 */
-#define SD_CS_PORT   0
-#define SD_CS_PIN    18  /* PA18 = GPIO chip-select */
-
-#define SD_CS_HIGH() (PORT->Group[SD_CS_PORT].OUTSET.reg = (1u << SD_CS_PIN))
-#define SD_CS_LOW()  (PORT->Group[SD_CS_PORT].OUTCLR.reg = (1u << SD_CS_PIN))
-
-/* -------- Config ------------------------------------------------------------ */
-#ifndef SD_SPI_INIT_HZ
-#define SD_SPI_INIT_HZ 400000u     /* ~400 kHz during init */
-#endif
-#ifndef SD_SPI_RUN_HZ
-#define SD_SPI_RUN_HZ  8000000u    /* 8 MHz after init */
-#endif
-#ifndef SD_CMD_TIMEOUT
-#define SD_CMD_TIMEOUT 100u        /* ms */
-#endif
-#ifndef SD_TOKEN_TIMEOUT
-#define SD_TOKEN_TIMEOUT 100u      /* ms */
-#endif
-
-/* -------- Locals ------------------------------------------------------------ */
+/* Card type flag */
 static int g_is_sdhc = 0;
 
-/* -------- SERCOM1 SPI low-level -------------------------------------------- */
+/* ==== CS control ========================================================== */
+#define SD_CS_HIGH(bus) (PORT->Group[(bus)->cs_port].OUTSET.reg = (1u << (bus)->cs_pin))
+#define SD_CS_LOW(bus)  (PORT->Group[(bus)->cs_port].OUTCLR.reg = (1u << (bus)->cs_pin))
 
-static inline void sercom1_wait_sync(void) {
-  while (SERCOM1->SPI.SYNCBUSY.reg);
+/* ==== SPI low-level ======================================================= */
+
+static inline void spi_wait_sync(spi_t* bus) {
+  while (bus->sercom->SPI.SYNCBUSY.reg) {}
 }
 
-static uint8_t spi_txrx(uint8_t v) {
-  while (!SERCOM1->SPI.INTFLAG.bit.DRE);
-  SERCOM1->SPI.DATA.reg = v;
-  while (!SERCOM1->SPI.INTFLAG.bit.RXC);
-  return (uint8_t)SERCOM1->SPI.DATA.reg;
+static uint8_t spi_txrx(spi_t* bus, uint8_t v) {
+  while (!bus->sercom->SPI.INTFLAG.bit.DRE) {}
+  bus->sercom->SPI.DATA.reg = v;
+  while (!bus->sercom->SPI.INTFLAG.bit.RXC) {}
+  return (uint8_t)bus->sercom->SPI.DATA.reg;
 }
 
-static void spi_chip_select_init(void) {
+static void spi_chip_select_init(spi_t* bus) {
   PM->APBBMASK.bit.PORT_ = 1;
-  /* CS as output, high */
-  PORT->Group[SD_CS_PORT].DIRSET.reg = (1u << SD_CS_PIN);
-  SD_CS_HIGH();
+  PORT->Group[bus->cs_port].DIRSET.reg = (1u << bus->cs_pin);
+  SD_CS_HIGH(bus);
 }
 
-static void spi_pins_init(void) {
-  /* PA16/PA17/PA19 to peripheral C (SERCOM1) */
+static void spi_pins_init(spi_t* bus) {
   PM->APBBMASK.bit.PORT_ = 1;
-  /* MOSI PA16 = even index -> PMUXE */
-  PORT->Group[0].PINCFG[SD_MOSI_PIN].bit.PMUXEN = 1;
-  PORT->Group[0].PMUX[SD_MOSI_PIN >> 1].bit.PMUXE = PORT_PMUX_PMUXE_C_Val;
 
-  /* SCK PA17 = odd index -> PMUXO */
-  PORT->Group[0].PINCFG[SD_SCK_PIN].bit.PMUXEN = 1;
-  PORT->Group[0].PMUX[SD_SCK_PIN >> 1].bit.PMUXO = PORT_PMUX_PMUXO_C_Val;
+  // MOSI: even index -> PMUXE
+  PORT->Group[bus->mosi_port].PINCFG[bus->mosi_pin].bit.PMUXEN = 1;
+  if ((bus->mosi_pin & 1u) == 0)
+    PORT->Group[bus->mosi_port].PMUX[bus->mosi_pin >> 1].bit.PMUXE = PORT_PMUX_PMUXE_C_Val;
+  else
+    PORT->Group[bus->mosi_port].PMUX[bus->mosi_pin >> 1].bit.PMUXO = PORT_PMUX_PMUXO_C_Val;
 
-  /* MISO PA19 = odd index -> PMUXO */
-  PORT->Group[0].PINCFG[SD_MISO_PIN].bit.PMUXEN = 1;
-  PORT->Group[0].PMUX[SD_MISO_PIN >> 1].bit.PMUXO = PORT_PMUX_PMUXO_C_Val;
+  // SCK
+  PORT->Group[bus->sck_port].PINCFG[bus->sck_pin].bit.PMUXEN = 1;
+  if ((bus->sck_pin & 1u) == 0)
+    PORT->Group[bus->sck_port].PMUX[bus->sck_pin >> 1].bit.PMUXE = PORT_PMUX_PMUXE_C_Val;
+  else
+    PORT->Group[bus->sck_port].PMUX[bus->sck_pin >> 1].bit.PMUXO = PORT_PMUX_PMUXO_C_Val;
+
+  // MISO
+  PORT->Group[bus->miso_port].PINCFG[bus->miso_pin].bit.PMUXEN = 1;
+  if ((bus->miso_pin & 1u) == 0)
+    PORT->Group[bus->miso_port].PMUX[bus->miso_pin >> 1].bit.PMUXE = PORT_PMUX_PMUXE_C_Val;
+  else
+    PORT->Group[bus->miso_port].PMUX[bus->miso_pin >> 1].bit.PMUXO = PORT_PMUX_PMUXO_C_Val;
 }
 
-static void spi_enable_gclk(void) {
-  /* Power & clocks for SERCOM1 */
-  PM->APBCMASK.bit.SERCOM1_ = 1;
-  GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM1_GCLK_ID_CORE) |
-                      GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
-  while (GCLK->STATUS.bit.SYNCBUSY);
+static void spi_enable_gclk(spi_t* bus) {
+  // Power & core clock for the selected SERCOM (core clock is enough for SPI)
+  if (bus->sercom == SERCOM0) { PM->APBCMASK.bit.SERCOM0_ = 1;
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM0_GCLK_ID_CORE) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
+  } else if (bus->sercom == SERCOM1) { PM->APBCMASK.bit.SERCOM1_ = 1;
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM1_GCLK_ID_CORE) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
+  } else if (bus->sercom == SERCOM2) { PM->APBCMASK.bit.SERCOM2_ = 1;
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM2_GCLK_ID_CORE) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
+  } else if (bus->sercom == SERCOM3) { PM->APBCMASK.bit.SERCOM3_ = 1;
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM3_GCLK_ID_CORE) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
+  } else if (bus->sercom == SERCOM4) { PM->APBCMASK.bit.SERCOM4_ = 1;
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM4_GCLK_ID_CORE) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
+  } else if (bus->sercom == SERCOM5) { PM->APBCMASK.bit.SERCOM5_ = 1;
+    GCLK->CLKCTRL.reg = GCLK_CLKCTRL_ID(SERCOM5_GCLK_ID_CORE) | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_CLKEN;
+  }
+  while (GCLK->STATUS.bit.SYNCBUSY) {}
 }
 
-static void spi_set_baud(uint32_t hz) {
-  /* BAUD = fref / (2*hz) - 1, with fref = 48 MHz (GCLK0) */
-  uint32_t fref = 48000000u;
+static void spi_set_baud(spi_t* bus, uint32_t hz) {
+  // BAUD = fref / (2*hz) - 1, with fref = 48 MHz (GCLK0)
+  const uint32_t fref = 48000000u;
   uint32_t baud = (fref / (2u * hz)) - 1u;
   if (baud > 255u) baud = 255u;
-  SERCOM1->SPI.BAUD.reg = (uint8_t)baud;
-  sercom1_wait_sync();
+  bus->sercom->SPI.BAUD.reg = (uint8_t)baud;
+  spi_wait_sync(bus);
 }
 
-void sd_spi_set_hz(uint32_t hz){ spi_set_baud(hz); }
+static void spi_master_init(spi_t* bus) {
+  spi_enable_gclk(bus);
+  spi_pins_init(bus);
+  spi_chip_select_init(bus);
 
-static void spi_master_init(uint32_t hz) {
-  spi_enable_gclk();
-  spi_pins_init();
-  spi_chip_select_init();
+  // Reset
+  bus->sercom->SPI.CTRLA.bit.ENABLE = 0;
+  spi_wait_sync(bus);
+  bus->sercom->SPI.CTRLA.bit.SWRST = 1;
+  while (bus->sercom->SPI.CTRLA.bit.SWRST || bus->sercom->SPI.SYNCBUSY.bit.SWRST) {}
 
-  /* Reset */
-  SERCOM1->SPI.CTRLA.bit.ENABLE = 0;
-  sercom1_wait_sync();
-  SERCOM1->SPI.CTRLA.bit.SWRST = 1;
-  while (SERCOM1->SPI.CTRLA.bit.SWRST || SERCOM1->SPI.SYNCBUSY.bit.SWRST);
+  // Master, Mode0 (CPOL=0, CPHA=0), DOPO=0 (MOSI=PAD0, SCK=PAD1), DIPO=3 (MISO=PAD3), MSB first
+  bus->sercom->SPI.CTRLA.reg =
+      SERCOM_SPI_CTRLA_MODE(3)   // Master
+    | SERCOM_SPI_CTRLA_DOPO(0)   // DO: PAD0 MOSI, PAD1 SCK, PAD2 SS (unused)
+    | SERCOM_SPI_CTRLA_DIPO(3);   // DI: PAD3 (MISO)
+    //| SERCOM_SPI_CTRLA_CPOL(0)
+    //| SERCOM_SPI_CTRLA_CPHA(0);
 
-  /* Master, CPOL=0, CPHA=0 (mode 0), DOPO=0 (MOSI PAD0, SCK PAD1), DIPO=3 (MISO PAD3), MSB first */
-  SERCOM1->SPI.CTRLA.reg =
-      SERCOM_SPI_CTRLA_MODE(3)   /* Master */
-    | SERCOM_SPI_CTRLA_DOPO(0)   /* MOSI=PAD0, SCK=PAD1 */
-    | SERCOM_SPI_CTRLA_DIPO(3);  /* MISO=PAD3 */
+  // Enable receiver
+  bus->sercom->SPI.CTRLB.reg = SERCOM_SPI_CTRLB_RXEN;
+  spi_wait_sync(bus);
 
+  spi_set_baud(bus, spi_s1.init_hz);
 
-  /* Enable receiver */
-  SERCOM1->SPI.CTRLB.reg = SERCOM_SPI_CTRLB_RXEN;
-  sercom1_wait_sync();
+  // Enable
+  bus->sercom->SPI.CTRLA.bit.ENABLE = 1;
+  spi_wait_sync(bus);
 
-  spi_set_baud(hz);
-
-  /* Enable */
-  SERCOM1->SPI.CTRLA.bit.ENABLE = 1;
-  sercom1_wait_sync();
-
-  /* Prime the bus with a dummy read */
-  (void)SERCOM1->SPI.DATA.reg;
+  (void)bus->sercom->SPI.DATA.reg; // dummy read
 }
 
-/* -------- SD SPI helpers ---------------------------------------------------- */
+/* Public setter if you want to bump speed after init */
+void sd_spi_set_hz(spi_t* bus, uint32_t hz) { spi_set_baud(bus, hz); }
 
-static uint8_t sd_spi_recv(void){ return spi_txrx(0xFF); }
-static void    sd_spi_send(uint8_t v){ spi_txrx(v); }
+/* ==== SD SPI helpers ======================================================= */
 
-static void sd_spi_send_bytes(const uint8_t *p, uint32_t n){
-  while (n--) sd_spi_send(*p++);
+static uint8_t sd_spi_recv(spi_t* bus){ return spi_txrx(bus, 0xFF); }
+static void    sd_spi_send(spi_t* bus, uint8_t v){ (void)spi_txrx(bus, v); }
+
+static void sd_spi_send_bytes(spi_t* bus, const uint8_t *p, uint32_t n){
+  while (n--) sd_spi_send(bus, *p++);
 }
-static void sd_spi_recv_bytes(uint8_t *p, uint32_t n){
-  while (n--) *p++ = sd_spi_recv();
-}
-
-static void sd_clock_idle(uint32_t clocks){
-  /* SD spec: at least 74 clocks with CS high */
-  SD_CS_HIGH();
-  for (uint32_t i = 0; i < clocks/8u; i++) sd_spi_send(0xFF);
+static void sd_spi_recv_bytes(spi_t* bus, uint8_t *p, uint32_t n){
+  while (n--) *p++ = sd_spi_recv(bus);
 }
 
-static uint8_t sd_wait_r1(uint32_t ms){
-  /* Wait until a non-0xFF appears (R1), or timeout */
-  uint32_t t = ms;
-  while (t--){
-    uint8_t r = sd_spi_recv();
+static void sd_clock_idle(spi_t* bus, uint32_t clocks){
+  // SD spec: ≥74 clocks with CS high
+  SD_CS_HIGH(bus);
+  for (uint32_t i = 0; i < clocks/8u; i++) sd_spi_send(bus, 0xFF);
+}
+
+static uint8_t sd_wait_r1(spi_t* bus, uint32_t ms){
+  while (ms--){
+    uint8_t r = sd_spi_recv(bus);
     if ((r & 0x80) == 0) return r;
     delay_ms(1);
   }
   return 0xFF;
 }
 
-static int sd_wait_token(uint8_t token, uint32_t ms){
-  uint32_t t = ms;
-  while (t--){
-    uint8_t b = sd_spi_recv();
+static int sd_wait_token(spi_t* bus, uint8_t token, uint32_t ms){
+  while (ms--){
+    uint8_t b = sd_spi_recv(bus);
     if (b == token) return 0;
     delay_ms(1);
   }
   return -1;
 }
 
-/* Send a command: cmd = 0..63 (without 0x40), arg big-endian, returns R1 */
-static uint8_t sd_cmd_r1(uint8_t cmd, uint32_t arg, uint8_t crc){
+/* Send command: cmd=0..63 (no 0x40), arg big-endian, return R1 */
+static uint8_t sd_cmd_r1(spi_t* bus, uint8_t cmd, uint32_t arg, uint8_t crc){
   uint8_t frame[6];
   frame[0] = 0x40 | (cmd & 0x3F);
   frame[1] = (uint8_t)(arg >> 24);
   frame[2] = (uint8_t)(arg >> 16);
   frame[3] = (uint8_t)(arg >> 8);
-  frame[4] = (uint8_t)arg;
+  frame[4] = (uint8_t)(arg);
   frame[5] = crc;
 
-  SD_CS_LOW();
-  sd_spi_send(0xFF);
-  sd_spi_send_bytes(frame, 6);
+  SD_CS_LOW(bus);
+  sd_spi_send(bus, 0xFF);                 // one stuff byte
+  sd_spi_send_bytes(bus, frame, 6);
 
-  uint8_t r1 = sd_wait_r1(SD_CMD_TIMEOUT);
+  uint8_t r1 = sd_wait_r1(bus, spi_s1.cmd_timeout);
   return r1;
 }
 
-
-/* Some commands have extra response bytes; caller reads them while CS low, then high */
-static void sd_cs_release(void){
-  SD_CS_HIGH();
-  /* One extra clock after CS high to flush the bus */
-  sd_spi_recv();
+static void sd_cs_release(spi_t* bus){
+  SD_CS_HIGH(bus);
+  (void)sd_spi_recv(bus); // extra clock
 }
 
-/* -------- Public API -------------------------------------------------------- */
+/* ==== SD public API ======================================================== */
 
 int sd_is_sdhc(void){ return g_is_sdhc; }
 
-static int sd_go_idle(void){
-  /* CMD0 with proper CRC = 0x95 */
-  for (int i=0;i<10;i++){
-    uint8_t r1 = sd_cmd_r1(0, 0, 0x95);
-    if (r1 == 0x01) { sd_cs_release(); return 0; } /* in idle state */
-    sd_cs_release();
+static int sd_go_idle(spi_t* bus){
+  // CMD0 with CRC 0x95
+  for (int i = 0; i < 10; i++){
+    uint8_t r1 = sd_cmd_r1(bus, 0, 0, 0x95);
+    if (r1 == 0x01) { sd_cs_release(bus); return 0; }
+    sd_cs_release(bus);
     delay_ms(10);
   }
   return -1;
 }
 
-static int sd_check_if_v2_and_voltage_ok(uint32_t *ocr_out){
-  /* CMD8 with pattern 0xAA and VHS=0x1 (2.7-3.6V); CRC = 0x87 */
-  uint8_t r1 = sd_cmd_r1(8, 0x000001AAu, 0x87);
-  if (r1 & 0x04) { sd_cs_release(); return -2; } /* illegal command -> v1.x card */
-  if (r1 != 0x01){ sd_cs_release(); return -1; } /* expect idle */
+static int sd_check_if_v2_and_voltage_ok(spi_t* bus, uint32_t *ocr_out){
+  // CMD8 VHS=0x1, pattern 0xAA, CRC 0x87
+  uint8_t r1 = sd_cmd_r1(bus, 8, 0x000001AAu, 0x87);
+  if (r1 & 0x04) { sd_cs_release(bus); return -2; } // illegal -> v1.x
+  if (r1 != 0x01){ sd_cs_release(bus); return -1; } // expect idle
 
   uint8_t r7[4];
-  sd_spi_recv_bytes(r7, 4);
-  sd_cs_release();
+  sd_spi_recv_bytes(bus, r7, 4);
+  sd_cs_release(bus);
 
-  /* Check echo pattern */
   if (r7[3] != 0xAA) return -3;
-
-  if (ocr_out) *ocr_out = (r7[0]<<24)|(r7[1]<<16)|(r7[2]<<8)|r7[3];
+  if (ocr_out) *ocr_out = ((uint32_t)r7[0] << 24) | ((uint32_t)r7[1] << 16) | ((uint32_t)r7[2] << 8) | r7[3];
   return 0;
 }
 
-static int sd_send_acmd41_hcs(void){
-  /* ACMD41: first CMD55 then CMD41 with HCS=1 */
-  for (uint32_t ms=0; ms<1000; ms+=20){
-    uint8_t r1 = sd_cmd_r1(55, 0, 0xFF);  /* APP_CMD */
-    sd_cs_release();
+static int sd_send_acmd41_hcs(spi_t* bus){
+  for (uint32_t ms = 0; ms < 1000; ms += 20){
+    uint8_t r1 = sd_cmd_r1(bus, 55, 0, 0xFF);  // APP_CMD
+    sd_cs_release(bus);
     if (r1 > 0x01) return -1;
 
-    r1 = sd_cmd_r1(41, 0x40000000u, 0xFF); /* HCS bit */
-    sd_cs_release();
-    if (r1 == 0x00) return 0;               /* ready */
+    r1 = sd_cmd_r1(bus, 41, 0x40000000u, 0xFF); // HCS
+    sd_cs_release(bus);
+    if (r1 == 0x00) return 0;                    // ready
     delay_ms(20);
   }
-  return -2; /* timeout */
+  return -2;
 }
 
-static int sd_read_ocr_and_capacity(void){
-  uint8_t r1 = sd_cmd_r1(58, 0, 0xFF);
-  if (r1 > 0x01 && r1 != 0x00){ sd_cs_release(); return -1; }
+static int sd_read_ocr_and_capacity(spi_t* bus){
+  uint8_t r1 = sd_cmd_r1(bus, 58, 0, 0xFF);
+  if (r1 > 0x01 && r1 != 0x00){ sd_cs_release(bus); return -1; }
 
   uint8_t ocr[4];
-  for (int i=0; i<4; i++) {
-    ocr[i] = sd_spi_recv();
-  }
-  sd_cs_release();
+  sd_spi_recv_bytes(bus, ocr, 4);
+  sd_cs_release(bus);
 
   g_is_sdhc = (ocr[0] & 0x40) ? 1 : 0;
   return 0;
 }
 
+int sd_init(spi_t* bus){
+  // Bring up SPI at init speed
+  spi_master_init(bus);
 
-int sd_init(void){
-  /* Bring up SPI @ 400 kHz */
-  spi_master_init(SD_SPI_INIT_HZ);
+  // ≥80 clocks with CS high
+  sd_clock_idle(bus, 80);
 
-  /* 80 clocks with CS high */
-  sd_clock_idle(80);
+  // CMD0 → idle
+  if (sd_go_idle(bus) != 0) return -10;
 
-  /* CMD0 → idle */
-  if (sd_go_idle() != 0) return -10;
+  // CMD8 (v2 check)
+  (void)sd_check_if_v2_and_voltage_ok(bus, NULL);
 
-  /* CMD8 (v2 check) — if illegal, try ACMD41 without HCS, but we’ll still default to byte addressing */
-  int v2ok = sd_check_if_v2_and_voltage_ok(NULL);
-  /* Loop ACMD41 until ready */
-  if (sd_send_acmd41_hcs() != 0) return -11;
-  /* CMD58: read OCR → CCS */
-  if (sd_read_ocr_and_capacity() != 0) return -12;
-  /* If not SDHC, ensure block length 512 (CMD16) */
+  // ACMD41 with HCS until ready
+  if (sd_send_acmd41_hcs(bus) != 0) return -11;
+
+  // CMD58: read OCR → CCS
+  if (sd_read_ocr_and_capacity(bus) != 0) return -12;
+
+  // Non-SDHC: set block length 512 (CMD16)
   if (!g_is_sdhc){
-    uint8_t r1 = sd_cmd_r1(16, 512, 0xFF);
-    sd_cs_release();
+    uint8_t r1 = sd_cmd_r1(bus, 16, 512, 0xFF);
+    sd_cs_release(bus);
     if (r1 != 0x00) return -13;
   }
 
-  /* One extra idle byte before first data command */
-  SD_CS_HIGH(); sd_spi_send(0xFF);
+  // Switch to run speed
+  sd_spi_set_hz(bus, bus->run_hz);
 
-  (void)v2ok; /* info only */
+  // One extra idle byte before first data command
+  SD_CS_HIGH(bus); sd_spi_send(bus, 0xFF);
+
   return 0;
 }
 
-/* Address argument handling */
 static inline uint32_t sd_arg_addr(uint32_t lba){
   return g_is_sdhc ? lba : (lba * 512u);
 }
 
-int sd_read_block(uint32_t lba, uint8_t *dst512){
-  uint8_t r1 = sd_cmd_r1(17, sd_arg_addr(lba), 0xFF);
-  if (r1 != 0x00){ sd_cs_release(); return -1; }
+int sd_read_block(spi_t* bus, uint32_t lba, uint8_t *dst512){
+  uint8_t r1 = sd_cmd_r1(bus, 17, sd_arg_addr(lba), 0xFF);
+  if (r1 != 0x00){ sd_cs_release(bus); return -1; }
 
-  if (sd_wait_token(0xFE, SD_TOKEN_TIMEOUT) != 0){
-    sd_cs_release(); return -2;
+  if (sd_wait_token(bus, 0xFE, bus->token_timeout) != 0){
+    sd_cs_release(bus); return -2;
   }
 
-  for (int i=0; i<16; i++) {
-    dst512[i] = sd_spi_recv();
-  }
-  // read the rest
-  sd_spi_recv_bytes(dst512+16, 512-16);
-  (void)sd_spi_recv(); (void)sd_spi_recv();
+  // Read 512 data + 2 CRC
+  sd_spi_recv_bytes(bus, dst512, 512);
+  (void)sd_spi_recv(bus); (void)sd_spi_recv(bus);
 
-  sd_cs_release();
+  sd_cs_release(bus);
   return 0;
 }
 
+int sd_write_block(spi_t* bus, uint32_t lba, const uint8_t *src512){
+  uint8_t r1 = sd_cmd_r1(bus, 24, sd_arg_addr(lba), 0xFF);
+  if (r1 != 0x00){ sd_cs_release(bus); return -1; }
 
-int sd_write_block(uint32_t lba, const uint8_t *src512){
-  uint8_t r1 = sd_cmd_r1(24, sd_arg_addr(lba), 0xFF);
-  if (r1 != 0x00){ sd_cs_release(); return -1; }
+  sd_spi_send(bus, 0xFF);           // stuff
+  sd_spi_send(bus, 0xFE);           // start token
+  sd_spi_send_bytes(bus, src512, 512);
+  sd_spi_send(bus, 0xFF); sd_spi_send(bus, 0xFF); // dummy CRC
 
-  /* One stuff byte before token is okay */
-  sd_spi_send(0xFF);
+  // Data response: 0bxxx00101 => accepted
+  uint8_t resp = sd_spi_recv(bus);
+  if ((resp & 0x1F) != 0x05){ sd_cs_release(bus); return -2; }
 
-  /* Start token 0xFE, then 512 data, then 2-byte CRC (dummy) */
-  sd_spi_send(0xFE);
-  sd_spi_send_bytes(src512, 512);
-  sd_spi_send(0xFF); sd_spi_send(0xFF);
-
-  /* Read data response: 0bxxx00101 means accepted */
-  uint8_t resp = sd_spi_recv();
-  if ((resp & 0x1F) != 0x05){ sd_cs_release(); return -2; }
-
-  /* Wait for not busy (0xFF) */
-  uint32_t t = SD_TOKEN_TIMEOUT;
+  // Wait not busy
+  uint32_t t = bus->token_timeout;
   while (t--){
-    if (sd_spi_recv() == 0xFF) break;
+    if (sd_spi_recv(bus) == 0xFF) break;
     delay_ms(1);
   }
-  if (!t){ sd_cs_release(); return -3; }
+  if ((int)t <= 0){ sd_cs_release(bus); return -3; }
 
-  sd_cs_release();
+  sd_cs_release(bus);
   return 0;
 }

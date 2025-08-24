@@ -4,10 +4,25 @@
 #include "samd21.h"
 #include "system_samd21.h"
 
-#define PIN_SERIAL1_TX   (10) 
-#define PAD_SERIAL1_TX   (1)   
-#define PIN_SERIAL1_RX   (11)  
-#define PAD_SERIAL1_RX   (3)   
+typedef struct {
+	Sercom* sercom;
+	uint8_t mosi_pin, mosi_port;
+	uint8_t miso_pin, miso_port;
+	uint8_t sck_pin, sck_port;
+	uint8_t cs_pin, cs_port;
+	uint32_t init_hz, run_hz;
+	uint32_t cmd_timeout, token_timeout;
+} spi_t;
+
+static spi_t spi_s1 = {
+	.sercom = SERCOM1,
+	.mosi_pin = 16, .mosi_port = 0,
+	.miso_pin = 19, .miso_port = 0,
+	.sck_pin = 17, .sck_port = 0,
+	.cs_pin = 18, .cs_port = 0,
+	.init_hz = 400000u, .run_hz = 8000000u,
+	.cmd_timeout = 100u, .token_timeout = 100u,
+};
 
 typedef struct {
 	Sercom* sercom;
