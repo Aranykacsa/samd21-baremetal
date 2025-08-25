@@ -1,0 +1,19 @@
+name: Test on hardware
+
+on:
+  push:
+    branches:
+      - test
+
+jobs:
+  deploy:
+    runs-on: [self-hosted]
+
+    steps:
+      # Ellenőrizd ki a repository-t, hogy hozzáférj a fájlokhoz
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      # Futassuk a deploy scriptet a szerveren
+      - name: Run build & flash
+        run: make quick
