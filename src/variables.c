@@ -30,3 +30,11 @@ i2c_t i2c_s3 = {
 	.pmux_func = 2, 
 	.trise_ns = 120,
 };
+
+const char* radio_commands[] = {
+    "mod lora",
+    "freq 868100000",
+    "sf sf12",
+    "pa on",
+    "pwr 20"
+};

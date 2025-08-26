@@ -37,4 +37,6 @@ typedef struct {
 
 extern i2c_t i2c_s3;
 
+extern const char* radio_command[];
+
 #endif /* VARIABLES_H */
