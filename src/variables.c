@@ -1,4 +1,5 @@
 #include "variables.h"
+#include <stddef.h>
 
 spi_t spi_s1 = {
 	.sercom = SERCOM1,
@@ -38,3 +39,6 @@ const char* radio_commands[] = {
     "pa on",
     "pwr 20"
 };
+
+const size_t radio_commands_len =
+    sizeof(radio_commands) / sizeof(radio_commands[0]);

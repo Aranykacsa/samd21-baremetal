@@ -1,7 +1,8 @@
 #ifndef RADIO_H
 #define RADIO_H
 
-#include "variable.hpp"
+#include "variables.h"
+#include <stdbool.h>
 
 /**
  * Sets up the LoRa radio module with high-performance settings if `boost` is true.

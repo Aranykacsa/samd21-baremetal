@@ -3,6 +3,7 @@
 
 #include "samd21.h"
 #include "system_samd21.h"
+#include <stddef.h>
 
 typedef struct {
 	Sercom* sercom;
@@ -37,6 +38,7 @@ typedef struct {
 
 extern i2c_t i2c_s3;
 
-extern const char* radio_command[];
+extern const char* radio_commands[];
+extern const size_t radio_commands_len;
 
 #endif /* VARIABLES_H */

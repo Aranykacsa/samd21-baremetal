@@ -5,6 +5,7 @@
 #include "uart.h"
 #include "clock.h"
 #include "variables.h"
+#include "board.h"
 
 int main(void) {
 
@@ -12,34 +13,7 @@ int main(void) {
   SysTick_Config(SystemCoreClock / 1000);
 
   printf("INIT\r\n");
-
-  uart_init(&uart_s2);
-
-  delay_ms(3000);
+  setup_board();
  
-  uart_write_string(&uart_s2, "\r\n");
-  char buf[64];
-  size_t n = uart_read_string_blocking(&uart_s2, buf, 1000);
-  if (n > 0) {
-      printf("Loopback: %s\n", buf);   
-  } else {
-      printf("No loopback!\n");
-  }
-  uart_write_string(&uart_s2, "radio get freq\r\n");
-
-  n = uart_read_string_blocking(&uart_s2, buf, 1000);
-  if (n > 0) {
-      printf("Loopback: %s\n", buf);   
-  } else {
-      printf("No loopback!\n");
-  }
-
-  uart_write_string(&uart_s2, "radio set freq 868100000\r\n");
-
-  n = uart_read_string_blocking(&uart_s2, buf, 1000);
-  if (n > 0) {
-      printf("Loopback: %s\n", buf);
-  } else {
-      printf("No loopback!\n");
-  }
+  
 }

@@ -1,45 +1,60 @@
 #include "radio.h"
 #include "variables.h"
 #include "clock.h"
+#include "uart.h"
+#include <stdbool.h>
+#include <string.h>           
+#include <stdio.h>
+#include <ctype.h>
+/*
+uart_write_string(&uart_s2, "\r\n");
+  char buf[64];
+  size_t n = uart_read_string_blocking(&uart_s2, buf, 1000);
+  if (n > 0) {
+      printf("Loopback: %s\n", buf);   
+  } else {
+      printf("No loopback!\n");
+  }
+  uart_write_string(&uart_s2, "radio get freq\r\n");
+
+  n = uart_read_string_blocking(&uart_s2, buf, 1000);
+  if (n > 0) {
+      printf("Loopback: %s\n", buf);   
+  } else {
+      printf("No loopback!\n");
+  }
+
+  uart_write_string(&uart_s2, "radio set freq 868100000\r\n");
+
+  n = uart_read_string_blocking(&uart_s2, buf, 1000);
+  if (n > 0) {
+      printf("Loopback: %s\n", buf);
+  } else {
+      printf("No loopback!\n");
+  }*/
+
 
 uint8_t setupRadio(bool boost) {
   printf("Starting radio setup...");
 
+  uart_write_string(&uart_s2, "\r\n");
 
-  //uart_init()
-  Serial1.begin(115200);
-
-  delay_ms(3000); 
 
   if (boost) {
     printf("Using high performance configuration");
 
-    size_t setLen = sizeof(setCommands) / sizeof(setCommands[0]);
-    for (size_t i = 0; i < setLen; ++i) {
+    char buf[64];
+    char cmd[64];
+    for (size_t i = 0; i < radio_commands_len; ++i) {
       
-      //radio uart
-      Serial1.printf("radio set %s\r\n", setCommands[i]);
+      snprintf(cmd, sizeof(cmd), "radio set %s\r\n", radio_commands[i]);      
+      uart_write_string(&uart_s2, cmd);
 
-      char response[64];
-      unsigned long start = millis();
-      while (millis() - start < 1000) {
-        while (Serial1.available()) {
-          char c = Serial1.read();
-          printf("%s\n", c);      
-          response += c;
-          if (c == '\n') break;  
-        }
-        if (response.endsWith("\n")) break;
-      }
-
-      //egész biztos, hogy c-ben ilyen nincs
-      response.trim();
-
-      if (response != "ok") {
-        printf("Command failed: ");
-        printf("%s\r\n", radio_commands[i]);
-        printf("Response: ");
-        printf("\r\n", response);
+      size_t n = uart_read_string_blocking(&uart_s2, buf, 1000);
+      if (n > 0) {
+          printf("Loopback: %s\n", buf);   
+      } else {
+          printf("No loopback!\n");
       }
     }
   } else {
@@ -47,16 +62,18 @@ uint8_t setupRadio(bool boost) {
     return 3;
   }
 
-  Serial.println("Radio setup complete.");
+  printf("Radio setup complete.");
   return 0;
 }
 
 void sendRadio(const char* msg) {
   if (strlen(msg) % 2 != 0) {
     printf("Error: Payload length not even: ");
-    printf("%s\r\n", );(msg);
+    printf("%s\r\n", msg);
     return;
   }
 
-  Serial1.printf("radio tx %s 1\r\n", msg);
+  char cmd[64];
+  snprintf(cmd, sizeof(cmd), "radio tx %s\r\n", msg);      
+  uart_write_string(&uart_s2, cmd);
 }

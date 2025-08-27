@@ -16,6 +16,8 @@ SRC := src
 
 # ==== Peripherals =====
 SD    ?= $(SRC)/peripherals/sd
+RADIO ?= $(SRC)/peripherals/radio
+BOARD ?= $(SRC)/peripherals/board
 
 # ==== Drivers =====
 SPI   ?= $(SRC)/drivers/spi
@@ -29,6 +31,8 @@ SRCS := \
   $(SRC)/variables.c \
   $(SPI)/spi.c \
   $(SD)/sd-card.c \
+  $(RADIO)/radio.c \
+  $(BOARD)/board.c \
   $(CLOCK)/clock.c \
   $(I2C)/i2c.c \
   $(UART)/uart.c \
@@ -52,7 +56,7 @@ CFLAGS := -Os -ffunction-sections -fdata-sections \
   -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
   -std=c11 -g3 \
   -D_RTE_ -D$(PART) -MMD -MP \
-  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART) -I$(CLOCK) -I$(SD) -I$(SPI)
+  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART) -I$(CLOCK) -I$(SD) -I$(SPI) -I$(RADIO) -I$(BOARD)
 
 # Linker flags — put specs here ONCE
 LDFLAGS := \
