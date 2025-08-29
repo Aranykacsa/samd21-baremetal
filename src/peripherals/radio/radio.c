@@ -6,33 +6,6 @@
 #include <string.h>           
 #include <stdio.h>
 #include <ctype.h>
-/*
-uart_write_string(&uart_s2, "\r\n");
-  char buf[64];
-  size_t n = uart_read_string_blocking(&uart_s2, buf, 1000);
-  if (n > 0) {
-      printf("Loopback: %s\n", buf);   
-  } else {
-      printf("No loopback!\n");
-  }
-  uart_write_string(&uart_s2, "radio get freq\r\n");
-
-  n = uart_read_string_blocking(&uart_s2, buf, 1000);
-  if (n > 0) {
-      printf("Loopback: %s\n", buf);   
-  } else {
-      printf("No loopback!\n");
-  }
-
-  uart_write_string(&uart_s2, "radio set freq 868100000\r\n");
-
-  n = uart_read_string_blocking(&uart_s2, buf, 1000);
-  if (n > 0) {
-      printf("Loopback: %s\n", buf);
-  } else {
-      printf("No loopback!\n");
-  }*/
-
 
 uint8_t setupRadio(bool boost) {
   printf("Starting radio setup...");
@@ -50,7 +23,7 @@ uint8_t setupRadio(bool boost) {
       snprintf(cmd, sizeof(cmd), "radio set %s\r\n", radio_commands[i]);      
       uart_write_string(&uart_s2, cmd);
 
-      size_t n = uart_read_string_blocking(&uart_s2, buf, 1000);
+      size_t n = uart_read_string_blocking(&uart_s2, buf, 64, 1000);
       if (n > 0) {
           printf("Loopback: %s\n", buf);   
       } else {

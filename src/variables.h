@@ -19,8 +19,8 @@ extern spi_t spi_s1;
 
 typedef struct {
 	Sercom* sercom;
-	uint8_t tx_pin, tx_pad;
-	uint8_t rx_pin, rx_pad;
+	uint8_t tx_pin, tx_port, txpo;
+	uint8_t rx_pin, rx_port, rxpo;
 	uint32_t baud;
 	uint8_t pmux_func;
 } uart_t;

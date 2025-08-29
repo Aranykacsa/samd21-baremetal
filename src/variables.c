@@ -12,13 +12,15 @@ spi_t spi_s1 = {
 };
 
 uart_t uart_s2 = {
-	.sercom = SERCOM2,
-	.tx_pin = 10,
-	.tx_pad = 1,
-	.rx_pin = 11,
-	.rx_pad = 3,
-	.baud = 115200,
-	.pmux_func = 0,
+  .sercom    = SERCOM2,
+  .tx_port   = 0,     // PORTA
+  .tx_pin    = 10,    // PA10 -> SERCOM2/PAD2
+  .rx_port   = 0,     // PORTA
+  .rx_pin    = 11,    // PA11 -> SERCOM2/PAD3
+  .txpo      = 1,     // TX on PAD2
+  .rxpo      = 3,     // RX on PAD3
+  .baud      = 115200,
+  .pmux_func = 3      // Function D (SERCOM ALT)
 };
 
 i2c_t i2c_s3 = {
