@@ -7,7 +7,7 @@
 #include <stdio.h>
 #include <ctype.h>
 
-uint8_t setupRadio(bool boost) {
+uint8_t setup_radio(bool boost) {
   printf("Starting radio setup...");
 
   uart_write_string(&uart_s2, "\r\n");
@@ -39,7 +39,7 @@ uint8_t setupRadio(bool boost) {
   return 0;
 }
 
-void sendRadio(const char* msg) {
+void radio_message(const char* msg) {
   if (strlen(msg) % 2 != 0) {
     printf("Error: Payload length not even: ");
     printf("%s\r\n", msg);

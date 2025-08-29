@@ -19,7 +19,7 @@ int main(void) {
  
   uart_write_string(&uart_s2, "\r\n");
   char buf[64];
-  size_t n = uart_read_string_blocking(&uart_s2, buf, 1000);
+  size_t n = uart_read_string_blocking(&uart_s2, buf, 64, 5000);
   if (n > 0) {
       printf("Loopback: %s\n", buf);   
   } else {
@@ -27,7 +27,7 @@ int main(void) {
   }
   uart_write_string(&uart_s2, "radio get freq\r\n");
 
-  n = uart_read_string_blocking(&uart_s2, buf, 1000);
+  n = uart_read_string_blocking(&uart_s2, buf, 64, 5000);
   if (n > 0) {
       printf("Loopback: %s\n", buf);   
   } else {
@@ -36,7 +36,7 @@ int main(void) {
 
   uart_write_string(&uart_s2, "radio set freq 868100000\r\n");
 
-  n = uart_read_string_blocking(&uart_s2, buf, 1000);
+  n = uart_read_string_blocking(&uart_s2, buf, 64, 5000);
   if (n > 0) {
       printf("Loopback: %s\n", buf);
   } else {

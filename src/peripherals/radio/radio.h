@@ -8,7 +8,7 @@
  * Sets up the LoRa radio module with high-performance settings if `boost` is true.
  * Sends configuration commands via Serial1 and checks for "ok" responses.
  */
-uint8_t setupRadio(bool boost);
+uint8_t setup_radio(bool boost);
 
 /**
  * Sends a formatted message string over the LoRa radio using Serial1.
@@ -22,6 +22,6 @@ uint8_t setupRadio(bool boost);
  * Sends a formatted message string over the LoRa radio using Serial1.
  * Ensures even-length hex payloads and waits for radio_tx_ok.
  */
-void sendRadio(const char* msg);
+void radio_message(const char* msg);
 
 #endif /* RADIO_H */
