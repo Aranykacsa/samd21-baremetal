@@ -2,6 +2,7 @@
 .build/
 .out/
 .vscode/
+decoder/.out/
 
 # Optional: object files, dependency files, and binaries
 *.o

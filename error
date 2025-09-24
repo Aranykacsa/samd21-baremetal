@@ -1,0 +1,31 @@
+[RADIO] TX resp: ok
+Polling target at91samd.cpu failed, trying to reexamine
+Info : SWD DPIDR 0x0bc11477
+Info : [at91samd.cpu] Cortex-M0+ r0p1 processor detected
+Info : [at91samd.cpu] target has 4 breakpoints, 2 watchpoints
+Polling target at91samd.cpu failed, trying to reexamine
+Info : SWD DPIDR 0x0bc11477
+Info : [at91samd.cpu] Cortex-M0+ r0p1 processor detected
+Info : [at91samd.cpu] target has 4 breakpoints, 2 watchpoints
+Info : [at91samd.cpu] external reset detected
+Polling target at91samd.cpu failed, trying to reexamine
+Info : SWD DPIDR 0x0bc11477
+Info : [at91samd.cpu] Cortex-M0+ r0p1 processor detected
+Info : [at91samd.cpu] target has 4 breakpoints, 2 watchpoints
+Polling target at91samd.cpu failed, trying to reexamine
+Info : SWD DPIDR 0x0bc11477
+Info : [at91samd.cpu] Cortex-M0+ r0p1 processor detected
+Info : [at91samd.cpu] target has 4 breakpoints, 2 watchpoints
+Polling target at91samd.cpu failed, trying to reexamine
+Info : SWD DPIDR 0x0bc11477
+Examination failed, GDB will be halted. Polling again in 100ms
+Info : SWD DPIDR 0x0bc11477
+Info : [at91samd.cpu] external reset detected
+Polling target at91samd.cpu failed, trying to reexamine
+Info : [at91samd.cpu] Cortex-M0+ r0p1 processor detected
+Info : [at91samd.cpu] target has 4 breakpoints, 2 watchpoints
+^Cshutdown command invoked
+make[1]: *** [Makefile:116: flash] Interrupt
+make: *** [Makefile:122: quick] Interrupt
+
+vdsz_zalan@vdsz-laptop:~/Documents/cosmik/mimike-ii-obc$ 

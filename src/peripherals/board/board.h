@@ -5,5 +5,6 @@
 
 uint8_t setup_board(void);
 uint8_t setup_peripherals(void);
+uint8_t measure_env(float* temp, float* hum);
 
 #endif /* BOARD_H */

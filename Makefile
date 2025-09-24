@@ -15,26 +15,35 @@ ENV := env
 SRC := src
 
 # ==== Peripherals =====
-SD    ?= $(SRC)/peripherals/sd
-RADIO ?= $(SRC)/peripherals/radio
-BOARD ?= $(SRC)/peripherals/board
+STORAGE ?= $(SRC)/peripherals/storage
+SD      ?= $(SRC)/peripherals/storage/sd-helper
+RADIO   ?= $(SRC)/peripherals/radio
+SENSORS ?= $(SRC)/peripherals/sensors
+AHT     ?= $(SENSORS)/aht20
+BOARD   ?= $(SRC)/peripherals/board
 
 # ==== Drivers =====
 SPI   ?= $(SRC)/drivers/spi
 CLOCK ?= $(SRC)/drivers/clock
-I2C   ?= $(SRC)/drivers/i2c
+I2C-M ?= $(SRC)/drivers/i2c/i2c-master
+I2C-S ?= $(SRC)/drivers/i2c/i2c-slave
+I2C-H ?= $(SRC)/drivers/i2c/i2c-helper
 UART  ?= $(SRC)/drivers/uart
 
 # ===== Sources =====
 SRCS := \
   $(SRC)/main.c \
   $(SRC)/variables.c \
-  $(SPI)/spi.c \
-  $(SD)/sd-card.c \
+  $(STORAGE)/storage.c \
+  $(SD)/sd-helper.c \
+  $(AHT)/aht20.c \
   $(RADIO)/radio.c \
   $(BOARD)/board.c \
   $(CLOCK)/clock.c \
-  $(I2C)/i2c.c \
+  $(SPI)/spi.c \
+  $(I2C-S)/i2c-slave.c \
+  $(I2C-M)/i2c-master.c \
+  $(I2C-H)/i2c-helper.c \
   $(UART)/uart.c \
   $(ENV)/syscalls_min.c \
   $(ENV)/system_samd21.c \
@@ -56,7 +65,8 @@ CFLAGS := -Os -ffunction-sections -fdata-sections \
   -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
   -std=c11 -g3 \
   -D_RTE_ -D$(PART) -MMD -MP \
-  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C) -I$(UART) -I$(CLOCK) -I$(SD) -I$(SPI) -I$(RADIO) -I$(BOARD)
+  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C-H) -I$(I2C-S) -I$(I2C-M) -I$(UART) -I$(SPI) \
+  -I$(CLOCK) -I$(STORAGE) -I$(RADIO) -I$(BOARD) -I$(SD) -I$(AHT)
 
 # Linker flags — put specs here ONCE
 LDFLAGS := \

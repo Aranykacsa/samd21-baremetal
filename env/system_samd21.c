@@ -58,7 +58,7 @@ uint32_t SystemCoreClock = __SYSTEM_CLOCK;/*!< System Clock Frequency (Core Cloc
  *         Initialize the System and update the SystemCoreClock variable.
  */
 void SystemInit(void) {
-// enable 1 wait state required at 3.3V 48 MHz
+	// enable 1 wait state required at 3.3V 48 MHz
 	REG_NVMCTRL_CTRLB = NVMCTRL_CTRLB_MANW | NVMCTRL_CTRLB_RWS_HALF;
 
 	/*****************************************************
