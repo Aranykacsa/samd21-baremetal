@@ -44,3 +44,8 @@ const char* radio_commands[] = {
 
 const size_t radio_commands_len =
     sizeof(radio_commands) / sizeof(radio_commands[0]);
+
+const uint8_t log_sector = 0;
+const uint16_t buffer_size = 507;
+const uint8_t AHT_ADDR = 0x38;
+

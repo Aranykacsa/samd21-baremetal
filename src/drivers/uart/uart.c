@@ -66,6 +66,7 @@ void uart_write_char(uart_t* bus, char c) {
 }
 
 void uart_write_string(uart_t* bus, const char *s) {
+  uart_flush_rx(bus);
   while (*s) uart_write_char(bus, *s++);
 }
 
@@ -89,7 +90,43 @@ size_t uart_read_string(uart_t* bus, char *buf, size_t len) {
   return n;
 }
 
-size_t uart_read_string_blocking(uart_t* bus, char *buf, size_t len, uint32_t timeout_ms) {
+void uart_flush_rx(uart_t* bus) {
+    uint32_t guard = 4096;
+    while (guard-- && bus->sercom->USART.INTFLAG.bit.RXC) {
+        (void)(bus->sercom->USART.DATA.reg & 0xFF);
+    }
+}
+
+size_t uart_readline(uart_t* bus, char *buf, size_t maxlen,
+                     uint32_t overall_timeout_ms, uint32_t interchar_timeout_ms) {
+    if (maxlen == 0) return 0;
+
+    size_t n = 0;
+    uint32_t t0  = get_uptime();
+    uint32_t tch = t0; // inter-char timer
+
+    while ((get_uptime() - t0) < overall_timeout_ms) {
+        // wait for a char, but respect inter-char timeout
+        while (!bus->sercom->USART.INTFLAG.bit.RXC) {
+            uint32_t now = get_uptime();
+            if ((now - t0)  >= overall_timeout_ms) goto out;
+            if ((now - tch) >= interchar_timeout_ms) goto out;
+        }
+
+        char c = (char)(bus->sercom->USART.DATA.reg & 0xFF);
+        tch = get_uptime(); // reset inter-char timer
+
+        if (c == '\n' || c == '\r') break;    // end-of-line
+        if (n + 1 < maxlen) buf[n++] = c;     // keep room for '\0'
+    }
+
+out:
+    buf[n] = '\0';
+    return n;
+}
+
+
+/*size_t uart_read_string_blocking(uart_t* bus, char *buf, size_t len, uint32_t timeout_ms) {
     if (!len) return 0;
     size_t n = 0;
     uint32_t start = get_uptime();
@@ -104,4 +141,4 @@ size_t uart_read_string_blocking(uart_t* bus, char *buf, size_t len, uint32_t ti
     }
     buf[n] = '\0';
     return n;
-}
+}*/

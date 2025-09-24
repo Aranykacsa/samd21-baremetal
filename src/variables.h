@@ -40,5 +40,8 @@ extern i2c_t i2c_s3;
 
 extern const char* radio_commands[];
 extern const size_t radio_commands_len;
+extern const uint8_t log_sector;
+extern const uint16_t buffer_size;
+extern const uint8_t AHT_ADDR;
 
 #endif /* VARIABLES_H */
