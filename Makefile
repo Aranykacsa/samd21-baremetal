@@ -82,7 +82,7 @@ OBJS := $(SRCS:%=$(BUILDDIR)/%.obj)
 DEPS := $(OBJS:.obj=.d)
 
 # ===== Rules =====
-.PHONY: clean build flash quick
+.PHONY: clean build write write-read flash debug
 
 build: $(ELF) $(HEX) $(BIN)
 	$(SIZE) $(ELF)
@@ -112,11 +112,20 @@ OPENOCD=openocd
 OPENOCD_IF=interface/cmsis-dap.cfg
 OPENOCD_TARGET=target/at91samdXX.cfg
 
-flash: $(ELF)
+write-read: $(ELF)
 	$(OPENOCD) -f $(OPENOCD_IF) -f $(OPENOCD_TARGET) \
 		-c "init; arm semihosting enable; program $(ELF) verify; reset run"
 
-quick:
+write: $(ELF)
+	$(OPENOCD) -f $(OPENOCD_IF) -f $(OPENOCD_TARGET) \
+		-c "init; arm semihosting disable; program $(ELF) verify; reset halt; shutdown"
+
+flash:
 	$(MAKE) clean
 	$(MAKE) build
-	$(MAKE) flash
+	$(MAKE) write
+
+debug:
+	$(MAKE) clean
+	$(MAKE) build
+	$(MAKE) write-read
