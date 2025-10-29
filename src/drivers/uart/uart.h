@@ -7,27 +7,27 @@
 #include <stddef.h>
 #include "variables.h"
 
+// src/drivers/uart/uart.c
+#include "samd21.h"
+#include "uart.h"
+#include "clock.h"
+#include "variables.h"
+
+uint16_t calculate_baud_value(uint32_t baudrate, uint32_t clock_hz);
+
+// === Configure PA22/PA23 for SERCOM3 (MUX C) ===
+void uart_pinmux(uart_t* bus);
+
+// === Initialize SERCOM3 as UART (PA22 TX, PA23 RX) ===
 void uart_init(uart_t* bus);
-void uart_write_char(uart_t* bus, char c);
-void uart_write_string(uart_t* bus, const char *s);
-int  uart_read_char_blocking(uart_t* bus);
-int  uart_try_read(uart_t* bus);     
-size_t uart_read_string(uart_t* bus, char *buf, size_t len);
-//size_t uart_read_string_blocking(uart_t* bus, char *buf, size_t len, uint32_t timeout_ms);
 
-// NEW: flush pending bytes from RX FIFO
-void uart_flush_rx(uart_t* bus);
+// === Transmit one byte ===
+void uart_write(uart_t* bus, uint8_t data);
 
-// NEW: read one CR/LF terminated line with timeouts
-size_t uart_readline(uart_t* bus, char *buf, size_t maxlen,
-                     uint32_t overall_timeout_ms, uint32_t interchar_timeout_ms);
+// === Receive one byte (blocking) ===
+uint8_t uart_read(uart_t* bus);
 
-// (optional) keep this, but we won’t use it anymore:
-// size_t uart_read_string_blocking(uart_t* bus, char *buf, size_t len, uint32_t timeout_ms);
-
-static inline void uart_drain_tx(uart_t* bus) {
-    while (!bus->sercom->USART.INTFLAG.bit.TXC) {}
-}
-
+// === Send a string ===
+void uart_send_string(uart_t* bus, const char* s);
 
 #endif

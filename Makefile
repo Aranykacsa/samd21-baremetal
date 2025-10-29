@@ -82,10 +82,20 @@ OBJS := $(SRCS:%=$(BUILDDIR)/%.obj)
 DEPS := $(OBJS:.obj=.d)
 
 # ===== Rules =====
-.PHONY: clean build write write-read flash debug
+.PHONY: all clean build write write-read flash debug size
 
-build: $(ELF) $(HEX) $(BIN)
+# Make 'all' the default
+.DEFAULT_GOAL := all
+
+all: $(ELF) $(HEX) $(BIN) size
+
+size:
 	$(SIZE) $(ELF)
+
+# Keep 'build' as a convenience alias (clean + all)
+build:
+	$(MAKE) clean
+	$(MAKE) all
 
 $(BUILDDIR)/%.c.obj: %.c
 	@mkdir -p $(dir $@)
@@ -108,9 +118,9 @@ clean:
 -include $(DEPS)
 
 # Flash with OpenOCD
-OPENOCD=openocd
-OPENOCD_IF=interface/cmsis-dap.cfg
-OPENOCD_TARGET=target/at91samdXX.cfg
+OPENOCD        := openocd
+OPENOCD_IF     := interface/cmsis-dap.cfg
+OPENOCD_TARGET := target/at91samdXX.cfg
 
 write-read: $(ELF)
 	$(OPENOCD) -f $(OPENOCD_IF) -f $(OPENOCD_TARGET) \
@@ -122,10 +132,10 @@ write: $(ELF)
 
 flash:
 	$(MAKE) clean
-	$(MAKE) build
+	$(MAKE) all
 	$(MAKE) write
 
 debug:
 	$(MAKE) clean
-	$(MAKE) build
+	$(MAKE) all
 	$(MAKE) write-read
