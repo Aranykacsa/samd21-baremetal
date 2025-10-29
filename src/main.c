@@ -56,15 +56,18 @@ int main(void) {
         SystemInit();
         SysTick_Config(SystemCoreClock / 1000);
         uart_init(&uart_s2);
+        delay_ms(100);
 
-        char buffer[] = " Hello, World!";
+        char buffer[10];
         int index = 0;
-        //uart_send_string("SERCOM3 UART ready on PA22/PA23\r\n");
+        uart_send_string(&uart_s2, "radio get mod\r\n");
 
-        while (index < sizeof(buffer) - 1) {
-            uart_write(&uart_s2, buffer[index++]);
+        while (1) {
+            //uart_write(&uart_s2, buffer[index++]);
             uint8_t c = uart_read(&uart_s2);   // wait for a byte
-            printf("Received: %c\r\n", c);
-            delay_ms(100);
+            buffer[index++] = c;
+            if(c == '\n') printf("Received: %s\r\n", buffer);
+
+            //delay_ms(100);
         }
     }
