@@ -25,12 +25,12 @@ uart_t uart_s2 = {
 
 i2c_t i2c_s3 = {
 	.sercom = SERCOM3,
-	.hz = 400000, 
+	.hz = 400000,
 	.sda_port = 0,
-	.sda_pin = 22, 
+	.sda_pin = 22,
 	.scl_port = 0,
-	.scl_pin = 23, 
-	.pmux_func = 2, 
+	.scl_pin = 23,
+	.pmux_func = 2,
 	.trise_ns = 120,
 };
 
@@ -48,4 +48,3 @@ const size_t radio_commands_len =
 const uint8_t log_sector = 0;
 const uint16_t buffer_size = 507;
 const uint8_t AHT_ADDR = 0x38;
-
