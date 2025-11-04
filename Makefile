@@ -27,7 +27,6 @@ SPI   ?= $(SRC)/drivers/spi
 CLOCK ?= $(SRC)/drivers/clock
 I2C-M ?= $(SRC)/drivers/i2c/i2c-master
 I2C-S ?= $(SRC)/drivers/i2c/i2c-slave
-I2C-H ?= $(SRC)/drivers/i2c/i2c-helper
 UART  ?= $(SRC)/drivers/uart
 
 # ===== Sources =====
@@ -43,7 +42,6 @@ SRCS := \
   $(SPI)/spi.c \
   $(I2C-S)/i2c-slave.c \
   $(I2C-M)/i2c-master.c \
-  $(I2C-H)/i2c-helper.c \
   $(UART)/uart.c \
   $(ENV)/syscalls_min.c \
   $(ENV)/system_samd21.c \
@@ -65,7 +63,7 @@ CFLAGS := -Os -ffunction-sections -fdata-sections \
   -O2 -Wall -Wextra -Werror=implicit-function-declaration -Wundef -Wshadow -Wdouble-promotion -Wformat=2 \
   -std=c11 -g3 \
   -D_RTE_ -D$(PART) -MMD -MP \
-  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C-H) -I$(I2C-S) -I$(I2C-M) -I$(UART) -I$(SPI) \
+  -I$(CMSIS) -I$(DFP_INC) -I$(ENV) -I$(SRC) -I$(I2C-S) -I$(I2C-M) -I$(UART) -I$(SPI) \
   -I$(CLOCK) -I$(STORAGE) -I$(RADIO) -I$(BOARD) -I$(SD) -I$(AHT)
 
 # Linker flags — put specs here ONCE
