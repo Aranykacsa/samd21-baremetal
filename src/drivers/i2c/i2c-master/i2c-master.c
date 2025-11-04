@@ -33,7 +33,7 @@ static inline uint32_t i2c_baud_calc(uint32_t f_gclk, uint32_t f_scl, uint32_t t
     return baud;
 }
 
-void i2c_master_init(i2c_t* bus, uint32_t f_gclk) {
+void i2c_master_init(i2c_t* bus) {
     i2c_enable_gclk(bus->sercom);
 
     i2c_pinmux(bus->sda_port, bus->sda_pin, bus->pmux_func);
@@ -50,7 +50,7 @@ void i2c_master_init(i2c_t* bus, uint32_t f_gclk) {
 
     i2cm->CTRLB.reg = SERCOM_I2CM_CTRLB_SMEN;                // smart mode
 
-    uint32_t baud = i2c_baud_calc(f_gclk, bus->hz, bus->trise_ns);
+    uint32_t baud = i2c_baud_calc(SystemCoreClock, bus->hz, bus->trise_ns);
     i2cm->BAUD.reg = SERCOM_I2CM_BAUD_BAUD(baud) | SERCOM_I2CM_BAUD_BAUDLOW(baud);
 
     i2cm->CTRLA.bit.ENABLE = 1;

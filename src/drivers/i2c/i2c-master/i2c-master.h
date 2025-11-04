@@ -4,13 +4,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "variables.h"
+#include "samd21.h"
+#include "system_samd21.h"
 
 /**
  * @brief Initialize an I2C master on the specified bus.
  * @param bus     Pointer to I2C bus configuration
- * @param f_gclk  SERCOM core clock frequency in Hz (usually 8 MHz or 48 MHz)
  */
-void i2c_master_init(i2c_t* bus, uint32_t f_gclk);
+void i2c_master_init(i2c_t* bus);
 
 /**
  * @brief Write data to a slave device.
